@@ -1,0 +1,175 @@
+{
+  "source": "Qball.blend",
+  "formatVersion": 1,
+  "scale": 26.70006445985483,
+  "parts": [
+    {
+      "role": "body",
+      "sourceObject": "立方体",
+      "positions": {
+        "offset": 0,
+        "length": 18438
+      },
+      "indices": {
+        "offset": 73752,
+        "length": 36864
+      },
+      "material": {
+        "color": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "roughness": 1.0,
+        "metalness": 0.0
+      }
+    },
+    {
+      "role": "eyeLeft",
+      "sourceObject": "球体",
+      "positions": {
+        "offset": 221208,
+        "length": 23814
+      },
+      "indices": {
+        "offset": 316464,
+        "length": 47616
+      },
+      "material": {
+        "color": [
+          0.800000011920929,
+          0.800000011920929,
+          0.800000011920929
+        ],
+        "roughness": 0.5,
+        "metalness": 0.0
+      }
+    },
+    {
+      "role": "eyeRight",
+      "sourceObject": "球体.001",
+      "positions": {
+        "offset": 506928,
+        "length": 23814
+      },
+      "indices": {
+        "offset": 602184,
+        "length": 47616
+      },
+      "material": {
+        "color": [
+          0.800000011920929,
+          0.800000011920929,
+          0.800000011920929
+        ],
+        "roughness": 0.5,
+        "metalness": 0.0
+      }
+    },
+    {
+      "role": "footLeft",
+      "sourceObject": "球体.003",
+      "positions": {
+        "offset": 792648,
+        "length": 1446
+      },
+      "indices": {
+        "offset": 798432,
+        "length": 2880
+      },
+      "material": {
+        "color": [
+          0.006125426851212978,
+          0.006125426851212978,
+          0.006125426851212978
+        ],
+        "roughness": 1.0,
+        "metalness": 0.0
+      }
+    },
+    {
+      "role": "footRight",
+      "sourceObject": "球体.005",
+      "positions": {
+        "offset": 809952,
+        "length": 1446
+      },
+      "indices": {
+        "offset": 815736,
+        "length": 2880
+      },
+      "material": {
+        "color": [
+          0.006125426851212978,
+          0.006125426851212978,
+          0.006125426851212978
+        ],
+        "roughness": 1.0,
+        "metalness": 0.0
+      }
+    },
+    {
+      "role": "cup",
+      "sourceObject": "柱体",
+      "positions": {
+        "offset": 827256,
+        "length": 19011
+      },
+      "indices": {
+        "offset": 903300,
+        "length": 37632
+      },
+      "material": {
+        "color": [
+          0.800000011920929,
+          0.800000011920929,
+          0.800000011920929
+        ],
+        "roughness": 0.0,
+        "metalness": 0.9956140518188477
+      }
+    },
+    {
+      "role": "liquid",
+      "sourceObject": "柱体.001",
+      "positions": {
+        "offset": 1053828,
+        "length": 192
+      },
+      "indices": {
+        "offset": 1054596,
+        "length": 372
+      },
+      "material": {
+        "color": [
+          0.800000011920929,
+          0.800000011920929,
+          0.800000011920929
+        ],
+        "roughness": 0.5,
+        "metalness": 0.0
+      }
+    },
+    {
+      "role": "straw",
+      "sourceObject": "立方体.001",
+      "positions": {
+        "offset": 1056084,
+        "length": 816
+      },
+      "indices": {
+        "offset": 1059348,
+        "length": 1536
+      },
+      "material": {
+        "color": [
+          0.19855758547782898,
+          0.772698163986206,
+          1.0
+        ],
+        "roughness": 0.7105262875556946,
+        "metalness": 1.0
+      }
+    }
+  ]
+}

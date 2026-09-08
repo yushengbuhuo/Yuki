@@ -1,0 +1,10 @@
+{
+  "name": "Yuki · 作品与笔记",
+  "short_name": "个人工作室",
+  "description": "作品、文章与小球共同组成的个人线上工作室。",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f7f5ef",
+  "theme_color": "#8b3f43",
+  "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

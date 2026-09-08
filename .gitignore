@@ -1,0 +1,20 @@
+# FARWORLD BEACON 的原始商业游戏图标仅保留在本地工作区。
+# 网站只发布 assets/images/works/ 下的低清组合预览图。
+assets/images/FARWORLDBEACON/ICON/
+
+# 新增角色图的原始 PNG 保留为本地编辑源，网页使用压缩后的命名 JPG。
+assets/images/works/exec-*.png
+
+# 仅用于本地制作、测试与项目说明，不发布到 GitHub Pages。
+/tmp/
+/tests/
+/tools/
+/docs/
+/参考风格/
+/小球形象/
+/AGENTS.md
+/个人博客与小球养成网站_Codex项目规格书.md
+/项目概览.md
+/assets/images/FARWORLDBEACON/
+/assets/images/ambient-current.svg
+/assets/images/og-placeholder.svg

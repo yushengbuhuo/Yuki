@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://yushengbuhuo.github.io/Yuki/sitemap.xml
