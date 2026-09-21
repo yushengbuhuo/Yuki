@@ -1,3 +1,4 @@
+import {pathDistance} from './pet-garden-details.js';
 import * as T from '../vendor/three/package/build/three.module.js';
 import {softShadow,batchStatic} from './pet-art.js';
 
@@ -38,16 +39,17 @@ export function makeBotanicalAtlas(kind){
   const texture=new T.CanvasTexture(c);texture.colorSpace=T.SRGBColorSpace;texture.anisotropy=4;return texture;
 }
 
-export function createVegetation({scene,wind,height,trees,mobile}){
+export function createVegetation({scene,wind,height,trees,mobile,localLights=[]}){
+  const lightPositions=Array.from({length:7},()=>new T.Vector3()),lightColors=Array.from({length:7},()=>new T.Color()),lightRanges=new Float32Array(7);
   let seed=4837;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
   const [grassAtlas,leafAtlas]=atlases;
   const group=new T.Group();group.name='botanical-meadow';scene.add(group);
   const dummy=new T.Object3D(),chunks=[],canopies=[],resources=[];
   function material(atlas,leaf=false){
-    return new T.ShaderMaterial({side:T.DoubleSide,uniforms:{dayTint:{value:new T.Color('#ffffff')},atlas:{value:atlas},clock:wind,leaf:{value:leaf?1:0},treeCenters:{value:trees.map(([x,z,s])=>new T.Vector3(x+1.1*s,z-.65*s,s))},fogColor:{value:new T.Color('#dce8db')},fogNear:{value:40},fogFar:{value:75}},
+    return new T.ShaderMaterial({side:T.DoubleSide,uniforms:{localPosition:{value:lightPositions},localColor:{value:lightColors},localRange:{value:lightRanges},dayTint:{value:new T.Color('#ffffff')},atlas:{value:atlas},clock:wind,leaf:{value:leaf?1:0},treeCenters:{value:trees.map(([x,z,s])=>new T.Vector3(x+1.1*s,z-.65*s,s))},fogColor:{value:new T.Color('#dce8db')},fogNear:{value:40},fogFar:{value:75}},
       vertexShader:`
         uniform float clock;uniform float leaf;uniform vec3 treeCenters[6];attribute vec3 tint;attribute vec3 crownNormal;attribute float variant;
-        varying vec2 vUv;varying vec3 vTint;varying float vLight;varying float vHeight;varying float vDepth;
+        varying vec3 vWorld;varying vec2 vUv;varying vec3 vTint;varying float vLight;varying float vHeight;varying float vDepth;
         void main(){
           vUv=(uv+vec2(mod(variant,2.),floor(variant/2.)))*.5;vTint=tint;vHeight=uv.y;
           vec4 center=modelMatrix*instanceMatrix*vec4(0.,0.,0.,1.);
@@ -67,17 +69,18 @@ export function createVegetation({scene,wind,height,trees,mobile}){
             world=modelMatrix*instanceMatrix*vec4(p,1.);vLight=.97+sin(center.x*.29+center.z*.23)*.03;
             for(int i=0;i<6;i++){vec2 d=(center.xz-treeCenters[i].xy)/(treeCenters[i].z*1.5);vLight*=1.-exp(-dot(d,d))*.26;}
           }
-          vec4 view=viewMatrix*world;
+          vWorld=world.xyz;vec4 view=viewMatrix*world;
           vDepth=-view.z;gl_Position=projectionMatrix*view;
         }`,
       fragmentShader:`
-        uniform vec3 dayTint;uniform sampler2D atlas;uniform float leaf;uniform vec3 fogColor;uniform float fogNear;uniform float fogFar;
-        varying vec2 vUv;varying vec3 vTint;varying float vLight;varying float vHeight;varying float vDepth;
+        uniform vec3 localPosition[7];uniform vec3 localColor[7];uniform float localRange[7];uniform vec3 dayTint;uniform sampler2D atlas;uniform float leaf;uniform vec3 fogColor;uniform float fogNear;uniform float fogFar;
+        varying vec3 vWorld;varying vec2 vUv;varying vec3 vTint;varying float vLight;varying float vHeight;varying float vDepth;
         void main(){
           vec4 tex=texture2D(atlas,vUv);if(tex.a<.38)discard;
           float detail=mix(.82,1.08,tex.r);
           float root=mix(.76,1.06,smoothstep(0.,.85,vHeight));
           vec3 col=vTint*detail*vLight*mix(root,1.,leaf)*dayTint;
+          for(int i=0;i<7;i++){float d=distance(vWorld,localPosition[i]);float fall=pow(max(0.,1.-d/max(.01,localRange[i])),2.)/(1.+d*d);col+=vTint*localColor[i]*fall*2.4;}
           col=mix(col,fogColor,smoothstep(fogNear,fogFar,vDepth));
           gl_FragColor=vec4(col,1.);
           #include <tonemapping_fragment>
@@ -105,6 +108,7 @@ export function createVegetation({scene,wind,height,trees,mobile}){
     for(let i=0;i<density;i++){
       const x=gx*4+(random()-.5)*4,z=gz*4+(random()-.5)*4;
       if(Math.hypot((x-5.3)/3.65,(z-1.5)/2.65)<1||Math.hypot((x+3.7)/2.2,(z+3.6)/1.85)<1)continue;
+      if(pathDistance(x,z)<.62)continue;
       const clearing=T.MathUtils.smoothstep(Math.hypot(x,z-1),1.05,2.2);
       if(clearing<.1)continue;
       const patch=(Math.sin(x*.48+z*.27)+Math.cos(z*.45-x*.18))*.5;
@@ -157,6 +161,7 @@ export function createVegetation({scene,wind,height,trees,mobile}){
   return {grassCount,leafCount,grassAtlas,leafAtlas,
     setDaylight(tint){for(const mat of [grassMat,leafMat])mat.uniforms.dayTint.value.copy(tint);},
     update(camera,fog){
+      for(let i=0;i<7;i++){const l=localLights[i];if(l){lightPositions[i].copy(l.position);lightColors[i].copy(l.color).multiplyScalar(l.intensity);lightRanges[i]=l.distance;}}
       for(const mat of [grassMat,leafMat]){mat.uniforms.fogColor.value.copy(fog.color);mat.uniforms.fogNear.value=fog.near;mat.uniforms.fogFar.value=fog.far;}
       for(const chunk of chunks){
         const d=camera.position.distanceTo(chunk.center),fraction=mobile?1:d>43?.38:d>32?.65:1;

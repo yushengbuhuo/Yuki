@@ -18,8 +18,18 @@
     pose: ['sit', 'side', 'rest', 'lookback'],
     scene: ['studio', 'night', 'window', 'garden']
   });
+  const ROOM_OPTIONS = Object.freeze({
+    rug: ['peach', 'sage', 'moon'],
+    food: ['cake', 'milk', 'berries']
+  });
   const appearanceDefaults = () => Object.fromEntries(Object.entries(APPEARANCE_OPTIONS).map(([key, values]) => [key, values[0]]));
   const appearance = (input) => Object.fromEntries(Object.entries(APPEARANCE_OPTIONS).map(([key, values]) => [key, values.includes(input?.[key]) ? input[key] : values[0]]));
+  const roomDefaults = () => ({ rug: 'peach', foodEffect: { kind: 'none', expiresAt: 0 } });
+  function room(input, now = Date.now()) {
+    const rug = ROOM_OPTIONS.rug.includes(input?.rug) ? input.rug : 'peach';
+    const kind = ROOM_OPTIONS.food.includes(input?.foodEffect?.kind) && input.foodEffect.expiresAt > now ? input.foodEffect.kind : 'none';
+    return { rug, foodEffect: { kind, expiresAt: kind === 'none' ? 0 : safeNumber(input.foodEffect.expiresAt, 0, now, now + 86400000) } };
+  }
   const DEFAULTS = Object.freeze({
     version: VERSION,
     name: "小球",
@@ -35,7 +45,7 @@
   const clamp = (value) => Math.max(0, Math.min(100, value));
   const safeNumber = (value, fallback, min = 0, max = Number.MAX_SAFE_INTEGER) =>
     Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
-  const nowState = (now = Date.now()) => ({ ...DEFAULTS, appearance: appearanceDefaults(), createdAt: now, lastVisitAt: now, lastTickAt: now });
+  const nowState = (now = Date.now()) => ({ ...DEFAULTS, appearance: appearanceDefaults(), room: roomDefaults(), createdAt: now, lastVisitAt: now, lastTickAt: now });
   function validate(input, now = Date.now()) {
     if (!input || typeof input !== "object" || input.version !== VERSION) return nowState(now);
     const name = typeof input.name === "string" && input.name.trim().length > 0
@@ -44,6 +54,7 @@
       version: VERSION,
       name,
       appearance: appearance(input.appearance),
+      room: room(input.room, now),
       createdAt: safeNumber(input.createdAt, now, 0, now),
       lastVisitAt: safeNumber(input.lastVisitAt, now, 0, now),
       lastTickAt: safeNumber(input.lastTickAt, now, 0, now),
@@ -144,5 +155,24 @@
     safe.appearance = appearance({ ...safe.appearance, ...patch });
     return safe;
   }
-  return { STORAGE_KEY, DEFAULTS, APPEARANCE_OPTIONS, setAppearance, clamp, validate, parseStored, storageAvailable, peek, save, load, settle, interact, getCondition, getSummary, rename, reset, nowState };
+  function setRoom(state, patch, now = Date.now()) {
+    const safe = validate(state, now);
+    safe.room = room({ ...safe.room, ...patch }, now);
+    return safe;
+  }
+  function feed(state, food, now = Date.now()) {
+    const safe = validate(state, now);
+    if (!ROOM_OPTIONS.food.includes(food)) return safe;
+    const changes = {
+      cake: { satiety: 18, mood: 12, cleanliness: -3, duration: 6 * 60000 },
+      milk: { satiety: 12, energy: 14, mood: 5, duration: 5 * 60000 },
+      berries: { satiety: 10, mood: 8, energy: 6, duration: 7 * 60000 }
+    }[food];
+    for (const key of ['satiety', 'mood', 'energy', 'cleanliness']) if (changes[key]) safe[key] = clamp(safe[key] + changes[key]);
+    safe.room.foodEffect = { kind: food, expiresAt: now + changes.duration };
+    safe.totalInteractions += 1;
+    safe.lastVisitAt = now;
+    return safe;
+  }
+  return { STORAGE_KEY, DEFAULTS, APPEARANCE_OPTIONS, ROOM_OPTIONS, setAppearance, setRoom, feed, clamp, validate, parseStored, storageAvailable, peek, save, load, settle, interact, getCondition, getSummary, rename, reset, nowState };
 });

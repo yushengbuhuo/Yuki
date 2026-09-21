@@ -12,22 +12,48 @@
 <body>
   <main id="world">
     <h1 class="accessible">小球的小屋与庄园</h1>
-    <nav class="accessible" aria-label="小球互动的键盘操作">
-      <a href="index.html">返回首页</a>
-      <button data-world-toggle>去庄园</button>
-      <button data-time-next>切换时刻（T），也可点击场景钟面</button>
-      <button data-time-pause>暂停或继续昼夜（P），也可点击钟旁圆钮</button>
-      <button data-grab>抓取小球，方向键调整，空格释放</button>
-      <button data-action="feed">喂食</button>
-      <button data-action="pet">摸摸</button>
-      <button data-action="play">玩耍</button>
-      <button data-action="sleep">休息</button>
-      <button data-action="clean">清洁</button>
-    </nav>
-    <p class="accessible" id="status" role="status"></p>
+    <aside class="world-ui" aria-label="场景操作">
+      <div class="world-top"><a href="index.html">离开小屋</a><button id="guide-open" aria-expanded="false" aria-controls="world-guide">玩法提示</button></div>
+      <section id="world-guide" class="world-guide" aria-labelledby="guide-title" hidden>
+        <h2 id="guide-title">慢慢来，小球在等你</h2>
+        <p>摸摸小球，或推门去庄园。这里没有任务，随时可以停下来。</p>
+        <ul>
+          <li>摇铃唤羊：邀请牧羊人和羊群来到庄园。</li>
+          <li>环境声与时刻：听风声，换一片天，也能暂停昼夜。</li>
+          <li>拖动空白处转动镜头；庄园滚轮缩放，也可用下方镜头按钮。</li>
+          <li>拖住小球再松手；也可点“抓取”，用方向按钮调整后释放。</li>
+        </ul>
+        <details class="keyboard-help"><summary>键盘操作</summary><p class="world-hint">先点场景或用 Tab 聚焦场景：H 唤羊 · M 声音 · T 时刻 · P 暂停 · E 出入 · G 抓取 · 方向键调整 · 空格释放 · Esc 取消。庄园 WASD 平移，Home 归位。</p></details>
+        <button id="guide-close">知道了，去玩吧</button>
+      </section>
+      <details class="world-controls" id="world-controls">
+        <summary>随手操作</summary>
+        <div class="world-control-body">
+          <div class="world-grid">
+            <button data-world-toggle>去庄园</button>
+            <button data-flock-call>摇铃唤羊（H）</button>
+            <button data-sound-toggle aria-pressed="false">环境声（M）</button>
+            <button data-time-next>切换时刻（T）</button>
+            <button data-time-pause aria-pressed="false">暂停昼夜（P）</button>
+            <button data-grab>抓取小球（G）</button>
+          </div>
+          <fieldset><legend>小球 · 抓取后调整位置</legend><div class="world-grid four">
+            <button data-input="ArrowLeft" aria-label="小球向左">←</button><button data-input="ArrowUp" aria-label="小球向前或向上">↑</button><button data-input="ArrowDown" aria-label="小球向后或向下">↓</button><button data-input="ArrowRight" aria-label="小球向右">→</button>
+            <button data-input="PageUp">抬高</button><button data-input="PageDown">放低</button><button data-input="Space">释放</button><button data-input="Escape">取消</button>
+          </div></fieldset>
+          <details id="camera-controls"><summary>镜头 · 转动、平移与缩放</summary><fieldset><legend class="accessible">镜头操作</legend><div class="world-grid four">
+            <button data-camera="left">左转</button><button data-camera="right">右转</button><button data-camera="up">俯视</button><button data-camera="down">平视</button>
+            <button data-camera="near">拉近</button><button data-camera="far">拉远</button><button data-camera="reset">归位</button><button data-camera="forward">前移</button>
+            <button data-camera="pan-left">左移</button><button data-camera="pan-right">右移</button><button data-camera="back">后移</button>
+          </div></fieldset></details>
+          <details><summary>陪小球玩</summary><div class="world-grid"><button data-action="feed">喂食</button><button data-action="pet">摸摸</button><button data-action="play">玩耍</button><button data-action="sleep">休息</button><button data-action="clean">清洁</button></div></details>
+        </div>
+      </details>
+    </aside>
+    <p class="world-status" id="status" role="status"></p>
   </main>
   <div id="loading"><p>小屋里亮起了一盏灯……</p><noscript>开启 JavaScript 后可以进入小屋。<a href="index.html">返回首页</a></noscript></div>
   <script src="assets/js/pet-storage.js"></script>
-  <script type="module" src="assets/js/pet-world-entry.js?v=daynight1"></script>
+  <script type="module" src="assets/js/pet-world-entry.js?v=roomlife3"></script>
 </body>
 </html>

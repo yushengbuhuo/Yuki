@@ -1,11 +1,15 @@
+import {mountWorldControls} from './pet-world-controls.js';
 import * as T from '../vendor/three/package/build/three.module.js';
+import {createGardenDetails} from './pet-garden-details.js';
 import {originalGeometry} from './pet-source.js';
-import {createPetExperience} from './pet-experience.js?v=daynight1';
+import {createPetExperience} from './pet-experience.js?v=roomlife3';
 import {painted,createFinish,archGeometry} from './pet-art.js';
 import {createVegetation} from './pet-vegetation.js';
-import {createPetSkin} from './pet-skin.js';
+import {createPetSkin} from './pet-skin.js?v=softblack3';
 import {createDayNight} from './pet-daynight.js';
-let experience,daynight;
+import {createWildlife} from './pet-wildlife.js';
+import {createSoundscape} from './pet-soundscape.js';
+let experience,daynight,wildlife,soundscape,flockBell,flockBellAge=10;
 
 const host=document.querySelector('#world'),status=document.querySelector('#status');
 const reduced=matchMedia('(prefers-reduced-motion: reduce)'),mobile=matchMedia('(max-width:700px)').matches;
@@ -70,22 +74,36 @@ const windowMaterial=mat('#ffd585');mesh(sphere,windowMaterial,-4.7,1.3,-2.12,.2
 const windowRim=mesh(new T.TorusGeometry(.3,.045,8,32),wood,-4.7,1.3,-2.09);
 mesh(box,cream,-4.7,1.3,-2.03,.04,.55,.05);mesh(box,cream,-4.7,1.3,-2.03,.55,.04,.05);
 mesh(sphere,mat('#eac887'),-3.3,.66,-1.95,.055);
-for(let i=0;i<5;i++)mesh(sphere,cream,-3.7+i*.25,.1,-1.65+i*.58,.6,.1,.38);
+
 const dummy=new T.Object3D();
 const hillMat=mat('#9bab95');for(const [x,z,sx,sy] of [[-19,-28,16,6],[0,-36,22,7],[24,-29,18,5]])mesh(sphere,hillMat,x,0,z,sx,sy,11);
 const cloudMat=new T.MeshBasicMaterial({color:'#edf0e2',fog:true});
 for(let i=0;i<8;i++)mesh(sphere,cloudMat,-23+i*7,10+Math.sin(i)*2,-35,3.5,1,1.6);
 const trees=[[-7,-4,1.3],[-8,3,.95],[.5,-7,1],[7,-6,1.1],[11,0,.85],[-12,-10,1.2]];
-const vegetation=createVegetation({scene,wind,height,trees,mobile});
+const garden=createGardenDetails(scene,height);
+const vegetation=createVegetation({scene,wind,height,trees,mobile,localLights:garden.lights});
 const count=vegetation.grassCount,leafCount=vegetation.leafCount;
 const flowers=new T.InstancedMesh(sphere,mat('#fff0c1'),90);for(let i=0;i<90;i++){dummy.position.set(-7+rand()*6,.3,1+rand()*6);dummy.scale.set(.08,.06,.08);dummy.updateMatrix();flowers.setMatrixAt(i,dummy.matrix);}scene.add(flowers);
 // Original supplied model: body, two separate short appendages, white eyes.
-const pet=new T.Group();scene.add(pet);pet.scale.setScalar(.55);
+const pet=new T.Group();scene.add(pet);pet.scale.setScalar(.33);
 const skin=createPetSkin(),eyeMat=new T.MeshBasicMaterial({color:'#fff5df',toneMapped:false,fog:false});
 for(const role of ['body','footLeft','footRight','eyeLeft','eyeRight']){const o=mesh(originalGeometry(role),role.startsWith('eye')?eyeMat:skin,0,0,0,1,1,1,pet);o.castShadow=!role.startsWith('eye');o.userData.role=role;}
 let state=window.PetStorage.load().state,lastAction=-10,actionTime=-10,action='';
 const target=new T.Vector3(0,0,1),ray=new T.Raycaster(),pointer=new T.Vector2(),hits=[];
 function perform(a){const now=performance.now()/1000;if(now-lastAction<1.2)return;lastAction=now;action=a;actionTime=now;state=window.PetStorage.interact(state,a);const saved=window.PetStorage.save(state);status.textContent=({feed:'小球吃饱了。',pet:'小球开心地蹭了蹭你。',play:'一起玩一会儿。',sleep:'小球在树下休息。',clean:'溪水洗掉了身上的灰。'})[a]+(saved?'':' 本次进度未能保存。');}
+function roomChoice(event){
+  if(event.kind==='food')state=window.PetStorage.feed(state,event.value);
+  if(event.kind==='outfit')state=window.PetStorage.setAppearance(state,{outfit:event.value});
+  if(event.kind==='rug')state=window.PetStorage.setRoom(state,{rug:event.value});
+  const saved=window.PetStorage.save(state);
+  status.textContent=event.kind==='food'
+    ?({cake:'小球坐好后吃完了草莓蛋糕，开心得轻轻发颤。',milk:'小球捧着热牛奶喝完，变得暖洋洋、慢吞吞。',berries:'小球吃完蓝莓，身边浮起了梦幻的蓝色微光。'})[event.value]
+    :event.kind==='outfit'
+      ?({scarf:'小球戴上了柔软的小围巾。',bow:'小球戴好蝴蝶结，得意地转了一圈。',cape:'小球披上绿色小斗篷。'})[event.value]
+      :({peach:'房间铺上了温暖的蜜桃色地毯。',sage:'房间换成了安静的鼠尾草绿地毯。',moon:'月夜蓝地毯让房间显得更适合做梦。'})[event.value];
+  if(!saved)status.textContent+=' 本次选择未能保存。';
+  return state;
+}
 document.querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>perform(b.dataset.action)));
 function sign(text,x,z,fn,width=1.5){const c=document.createElement('canvas');c.width=512;c.height=160;const ctx=c.getContext('2d');ctx.fillStyle='#ecdfb9';ctx.fillRect(0,0,512,160);ctx.strokeStyle='#b4a67d';ctx.lineWidth=12;ctx.strokeRect(6,6,500,148);ctx.fillStyle='#555f4c';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='48px sans-serif';if(ctx.measureText(text).width>470)ctx.font=(48*470/ctx.measureText(text).width)+'px sans-serif';ctx.fillText(text,256,80);const tex=new T.CanvasTexture(c);tex.colorSpace=T.SRGBColorSpace;const b=mesh(new T.PlaneGeometry(width,width*.3125),new T.MeshBasicMaterial({map:tex,side:T.DoubleSide,toneMapped:false}),x,.91,z);b.rotation.x=-.15;b.userData.activate=fn;hits.push(b);mesh(box,wood,x,.4,z,.08,.8,.08);return b;}
 sign('← 回家',-7,6,()=>{location.href='index.html';});
@@ -100,12 +118,17 @@ const motes=new T.InstancedMesh(sphere,new T.MeshBasicMaterial({color:'#f9dc9a'}
 const food=mat('#c88955');for(let i=0;i<5;i++)mesh(sphere,food,-2+(rand()-.5)*.3,.16,2.7+(rand()-.5)*.3,.09);
 const ball=mesh(sphere,mat('#d8a077'),1,.3,4.6,.27);ball.userData.activate=()=>perform('play');hits.push(ball);
 door.userData.activate=()=>perform('sleep');hits.push(door);
-const lantern=mat('#f0c776');for(const [x,z] of [[-5,1],[2,-3]]){mesh(box,wood,x,.5,z,.08,1,.08);mesh(sphere,lantern,x,1.12,z,.2,.28,.2);}
+
 function walkable(x,z){return Math.hypot((x-5.3)/3.9,(z-1.5)/2.9)>1&&Math.hypot((x+3.7)/2.5,(z+3.6)/2)>1&&trees.every(([tx,tz])=>Math.hypot(x-tx,z-tz)>.8);}
 function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();experience?.resize();}addEventListener('resize',resize);resize();
 let frame=0,last=0,time=0,slow=0,frames=0,total=0;const offset=new T.Vector3();
 function tick(ms){frame=requestAnimationFrame(tick);if(ms-last<1000/(mobile?30:60)-1)return;const elapsed=(ms-last)/1000,dt=Math.min(elapsed,.05);last=ms;time+=dt;wind.value=reduced.matches?0:time;waterMat.uniforms.time.value=reduced.matches?0:time;
-experience.update(dt,ms/1000);daynight.update(dt,time);
+daynight.update(dt,time);
+flockBellAge+=dt;if(flockBell)flockBell.rotation.z=reduced.matches?0:Math.sin(flockBellAge*15)*Math.exp(-flockBellAge*4)*.3;
+const phase=daynight.diagnostics().phase;wildlife.update(dt,time,phase,pet,experience.mode,reduced.matches);
+experience.setLifeContext({phase,bird:wildlife.bird,firefly:garden.lights[4].position});
+experience.update(dt,ms/1000);experience.resolveActors(wildlife.colliders());soundscape.update(dt,time,experience.mode,phase,pet,experience.moving);soundscape.pull(experience.pullSound);
+for(const event of wildlife.audioEvents())soundscape.emit(event.kind,event.position);
 if(experience.mode==="garden")vegetation.update(camera,scene.fog);
 const active=ms/1000-actionTime<1.2;
 ball.position.y=.3+(active&&action==='play'&&!reduced.matches?Math.abs(Math.sin(time*5))*.4:0);
@@ -114,9 +137,9 @@ ripples.forEach((r,i)=>{const p=reduced.matches?i/3:(time*.2+i/3)%1;r.scale.setS
 renderer.info.reset();finish.render(experience.scene,experience.camera,experience.mode==='room',pet);
 total+=elapsed;frames++;if(frames===180){if(total/frames>.027&&!mobile&&slow<2){slow++;renderer.setPixelRatio(Math.max(.85,renderer.getPixelRatio()-.25));}frames=0;total=0;}}
 document.addEventListener('visibilitychange',()=>{cancelAnimationFrame(frame);if(!document.hidden){last=performance.now();frame=requestAnimationFrame(tick);}});
-const settle=setInterval(()=>{state=window.PetStorage.settle(state);window.PetStorage.save(state);},60000);
+const settle=setInterval(()=>{state=window.PetStorage.settle(state);window.PetStorage.save(state);experience?.setRoomState(state);},60000);
 canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();cancelAnimationFrame(frame);const el=document.querySelector('#loading');el.hidden=false;el.innerHTML='<p>庭院暂时休息了，请刷新页面重新进入。</p><a href="index.html">返回首页</a>';});
-addEventListener('pagehide',e=>{if(e.persisted)return;cancelAnimationFrame(frame);clearInterval(settle);daynight?.dispose();experience?.dispose();finish.dispose();vegetation.dispose();const gs=new Set(),ms=new Set();scene.traverse(o=>{if(o.geometry)gs.add(o.geometry);if(o.material)ms.add(o.material);});gs.forEach(g=>g.dispose());ms.forEach(m=>{m.map?.dispose();m.dispose();});renderer.dispose();});
+addEventListener('pagehide',e=>{if(e.persisted)return;cancelAnimationFrame(frame);clearInterval(settle);soundscape?.dispose();daynight?.dispose();experience?.dispose();finish.dispose();vegetation.dispose();const gs=new Set(),ms=new Set();scene.traverse(o=>{if(o.geometry)gs.add(o.geometry);if(o.material)ms.add(o.material);});gs.forEach(g=>g.dispose());ms.forEach(m=>{m.map?.dispose();m.dispose();});renderer.dispose();});
 // Merge static opaque props by material and shadow policy.
 const batches=new Map();
 for(const o of [...scene.children]){
@@ -128,13 +151,23 @@ if(objects.length<2)continue;const positions=[],normals=[],uvs=[];
 for(const o of objects){o.updateMatrix();const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();g.applyMatrix4(o.matrix);positions.push(...g.attributes.position.array);normals.push(...g.attributes.normal.array);if(g.attributes.uv)uvs.push(...g.attributes.uv.array);else for(let i=0;i<g.attributes.position.count;i++)uvs.push(0,0);g.dispose();scene.remove(o);}
 const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setAttribute('normal',new T.Float32BufferAttribute(normals,3));g.setAttribute('uv',new T.Float32BufferAttribute(uvs,2));g.computeBoundingSphere();const o=mesh(g,objects[0].material,0,0,0);o.castShadow=objects[0].castShadow;
 }
-experience=createPetExperience({renderer,scene,camera,pet,door,land,hits,target,height,walkable,perform,status,reduced,onHurt(angry){
+experience=createPetExperience({renderer,scene,camera,pet,door,land,hits,target,height,walkable,perform,status,reduced,petState:state,onRoomChoice:roomChoice,onHurt(angry){
 state={...state,mood:Math.max(0,state.mood-(angry?8:4)),totalInteractions:state.totalInteractions+1};
 if(!window.PetStorage.save(state))status.textContent+=' 本次进度未能保存。';
 }});
-daynight=createDayNight({scene,sun,ambient,room:experience.room,vegetation,water:waterMat,clouds:cloudMat,lantern,windowMaterial,renderer,hits,status,reduced});
+daynight=createDayNight({scene,sun,ambient,room:experience.room,vegetation,water:waterMat,clouds:cloudMat,garden,windowMaterial,renderer,hits,status,reduced});
+wildlife=createWildlife({scene,height,walkable,mobile,renderer});
+soundscape=createSoundscape({canvas,scene,room:experience.room,hits,status});
+function summonFlock(){const result=wildlife.flock.invite();flockBellAge=0;soundscape.emit('bell',{x:-5.7,z:5.5});status.textContent=result==='arriving'?'牧羊人和羊群已经在路上，稍等一会儿。':result==='grazing'?'羊群已经在草地上吃草啦。':result==='leaving'?'牧羊人正带羊群前往另一侧，等它们走远后再邀请吧。':'铃声传向远方，牧羊人会带着羊群沿小路走来。';}
+sign('摇铃唤羊',-5.7,5.5,summonFlock,1.65);
+const summonBrass=mat('#c9aa69');flockBell=mesh(new T.CylinderGeometry(.11,.23,.34,20),summonBrass,-5.7,1.52,5.5);flockBell.userData.activate=summonFlock;hits.push(flockBell);
+mesh(new T.TorusGeometry(.09,.022,6,16),wood,-5.7,1.8,5.5);mesh(sphere,summonBrass,-5.7,1.31,5.5,.06);
+const summonButton=document.querySelector('[data-flock-call]');summonButton.addEventListener('click',summonFlock);
+function summonKey(e){if(!e.repeat&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&e.key.toLowerCase()==='h'){e.preventDefault();summonFlock();}}canvas.addEventListener('keydown',summonKey);
+addEventListener('pagehide',e=>{if(!e.persisted){summonButton.removeEventListener('click',summonFlock);canvas.removeEventListener('keydown',summonKey);}});
 // Refresh moving sunlight at a bounded rate; leaf sway stays inexpensive.
 renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
+mountWorldControls(experience);
 document.querySelector('#loading').hidden=true;frame=requestAnimationFrame(tick);
 
-export function getWorldDiagnostics(){return {daynight:daynight.diagnostics(),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,pixelRatio:renderer.getPixelRatio(),grassInstances:count,leafInstances:leafCount,state:{name:state.name,satiety:state.satiety,mood:state.mood},reducedMotion:reduced.matches,...experience.diagnostics()};}
+export function getWorldDiagnostics(){return {wildlife:wildlife.diagnostics(),sound:soundscape.diagnostics(),daynight:daynight.diagnostics(),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,pixelRatio:renderer.getPixelRatio(),grassInstances:count,leafInstances:leafCount,state:{name:state.name,satiety:state.satiety,mood:state.mood},reducedMotion:reduced.matches,...experience.diagnostics()};}
