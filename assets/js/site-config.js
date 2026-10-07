@@ -1,4 +1,9 @@
 window.SITE_CONFIG = {
+  desktopPet: {
+    purchaseUrl: "",
+    downloadUrl: "",
+    launchUrl: ""
+  },
   siteName: "Yuki · 作品与笔记",
   ownerName: "Yuki",
   roleLine: "游戏设计 · UI / 交互 · 3D 视觉 · 内容运营",

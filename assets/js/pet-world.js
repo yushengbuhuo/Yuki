@@ -20,7 +20,7 @@ renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
 renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;
 const finish=createFinish(renderer);renderer.info.autoReset=false;
 host.append(renderer.domElement);const canvas=renderer.domElement;canvas.tabIndex=0;
-canvas.setAttribute('aria-label','风之庭院。点击地面散步，点击小球摸摸，点击木牌互动。拖动环顾，滚轮缩放。方向键移动，空格玩耍，Home 回到初始位置。');
+canvas.setAttribute('aria-label','风之庭院。点击地面散步，点击小球摸摸，点击食盆喂食，点击池塘清洁，点击铃铛唤羊。拖动环顾，滚轮缩放。方向键移动，空格玩耍，Home 回到初始位置。');
 const scene=new T.Scene();scene.background=new T.Color('#dce8db');scene.fog=new T.Fog('#dce8db',26,65);
 const camera=new T.PerspectiveCamera(38,1,.1,100);
 const ambient=new T.HemisphereLight(0xf5f4e5,0x799b91,2.8);scene.add(ambient);
@@ -105,21 +105,25 @@ function roomChoice(event){
   return state;
 }
 document.querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>perform(b.dataset.action)));
-function sign(text,x,z,fn,width=1.5){const c=document.createElement('canvas');c.width=512;c.height=160;const ctx=c.getContext('2d');ctx.fillStyle='#ecdfb9';ctx.fillRect(0,0,512,160);ctx.strokeStyle='#b4a67d';ctx.lineWidth=12;ctx.strokeRect(6,6,500,148);ctx.fillStyle='#555f4c';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='48px sans-serif';if(ctx.measureText(text).width>470)ctx.font=(48*470/ctx.measureText(text).width)+'px sans-serif';ctx.fillText(text,256,80);const tex=new T.CanvasTexture(c);tex.colorSpace=T.SRGBColorSpace;const b=mesh(new T.PlaneGeometry(width,width*.3125),new T.MeshBasicMaterial({map:tex,side:T.DoubleSide,toneMapped:false}),x,.91,z);b.rotation.x=-.15;b.userData.activate=fn;hits.push(b);mesh(box,wood,x,.4,z,.08,.8,.08);return b;}
-sign('← 回家',-7,6,()=>{location.href='index.html';});
-sign('树下休息',-2.7,-1,()=>{target.set(-2.6,0,-.5);perform('sleep');});
-sign('吃点东西',-2,3,()=>{target.set(-1.8,0,2.7);perform('feed');});
-sign('洗洗脸',3,3.8,()=>{target.set(2.4,0,3.3);perform('clean');});pond.userData.activate=()=>perform('clean');hits.push(pond);
-sign('一起玩',1,5.2,()=>perform('play'));
-sign(state.name+'的庭院',0,-4.4,()=>perform('pet'),2.5);
-sign('点草地散步 · 点小球摸摸',0,7.8,()=>perform('pet'),3.8);
+pond.userData.activate=()=>perform('clean');hits.push(pond);
 const bowl=mesh(new T.TorusGeometry(.35,.09,8,20),cream,-2,.15,2.7);bowl.rotation.x=-Math.PI/2;bowl.userData.activate=()=>perform('feed');hits.push(bowl);
 const motes=new T.InstancedMesh(sphere,new T.MeshBasicMaterial({color:'#f9dc9a'}),12);scene.add(motes);motes.visible=false;
 const food=mat('#c88955');for(let i=0;i<5;i++)mesh(sphere,food,-2+(rand()-.5)*.3,.16,2.7+(rand()-.5)*.3,.09);
 const ball=mesh(sphere,mat('#d8a077'),1,.3,4.6,.27);ball.userData.activate=()=>perform('play');hits.push(ball);
 door.userData.activate=()=>perform('sleep');hits.push(door);
 
-function walkable(x,z){return Math.hypot((x-5.3)/3.9,(z-1.5)/2.9)>1&&Math.hypot((x+3.7)/2.5,(z+3.6)/2)>1&&trees.every(([tx,tz])=>Math.hypot(x-tx,z-tz)>.8);}
+// A separate desktop cottage keeps the original room entrance available.
+const desktopCottage=new T.Group();scene.add(desktopCottage);
+desktopCottage.position.set(1.1,height(1.1,-5.4),-5.4);
+function cottagePart(g,m,x,y,z,sx=1,sy=sx,sz=sx){const o=mesh(g,m,x,y,z,sx,sy,sz,desktopCottage);o.castShadow=true;o.userData.activate=()=>document.dispatchEvent(new Event('desktop-house-open'));hits.push(o);return o;}
+cottagePart(box,cream,0,.7,0,1.6,1.4,1.25);
+const cottageRoofMaterial=mat('#ac7867');
+for(const side of [-1,1]){const panel=cottagePart(box,cottageRoofMaterial,side*.47,1.6,0,1.12,.12,1.65);panel.rotation.z=-side*.55;}
+cottagePart(archGeometry(.48,.85,.08),wood,0,.04,.68);
+cottagePart(sphere,windowMaterial,-.5,.91,.65,.16,.18,.04);
+cottagePart(box,stone,0,.035,.94,1.05,.07,.56);
+
+function walkable(x,z){return Math.hypot((x-5.3)/3.9,(z-1.5)/2.9)>1&&Math.hypot((x+3.7)/2.5,(z+3.6)/2)>1&&!(Math.abs(x-1.1)<1.15&&Math.abs(z+5.4)<1)&&trees.every(([tx,tz])=>Math.hypot(x-tx,z-tz)>.8);}
 function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();experience?.resize();}addEventListener('resize',resize);resize();
 let frame=0,last=0,time=0,slow=0,frames=0,total=0;const offset=new T.Vector3();
 function tick(ms){frame=requestAnimationFrame(tick);if(ms-last<1000/(mobile?30:60)-1)return;const elapsed=(ms-last)/1000,dt=Math.min(elapsed,.05);last=ms;time+=dt;wind.value=reduced.matches?0:time;waterMat.uniforms.time.value=reduced.matches?0:time;
@@ -159,7 +163,6 @@ daynight=createDayNight({scene,sun,ambient,room:experience.room,vegetation,water
 wildlife=createWildlife({scene,height,walkable,mobile,renderer});
 soundscape=createSoundscape({canvas,scene,room:experience.room,hits,status});
 function summonFlock(){const result=wildlife.flock.invite();flockBellAge=0;soundscape.emit('bell',{x:-5.7,z:5.5});status.textContent=result==='arriving'?'牧羊人和羊群已经在路上，稍等一会儿。':result==='grazing'?'羊群已经在草地上吃草啦。':result==='leaving'?'牧羊人正带羊群前往另一侧，等它们走远后再邀请吧。':'铃声传向远方，牧羊人会带着羊群沿小路走来。';}
-sign('摇铃唤羊',-5.7,5.5,summonFlock,1.65);
 const summonBrass=mat('#c9aa69');flockBell=mesh(new T.CylinderGeometry(.11,.23,.34,20),summonBrass,-5.7,1.52,5.5);flockBell.userData.activate=summonFlock;hits.push(flockBell);
 mesh(new T.TorusGeometry(.09,.022,6,16),wood,-5.7,1.8,5.5);mesh(sphere,summonBrass,-5.7,1.31,5.5,.06);
 const summonButton=document.querySelector('[data-flock-call]');summonButton.addEventListener('click',summonFlock);

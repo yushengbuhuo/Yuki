@@ -13,12 +13,19 @@
   <main id="world">
     <h1 class="accessible">小球的小屋与庄园</h1>
     <aside class="world-ui" aria-label="场景操作">
-      <div class="world-top"><a href="index.html">离开小屋</a><button id="guide-open" aria-expanded="false" aria-controls="world-guide">玩法提示</button></div>
+      <div class="world-top"><a href="index.html">离开小屋</a><div class="world-top-actions"><button data-desktop-house aria-haspopup="dialog">⌂ 桌面小屋</button><button id="guide-open" aria-expanded="false" aria-controls="world-guide">玩法提示</button></div></div>
       <section id="world-guide" class="world-guide" aria-labelledby="guide-title" hidden>
         <h2 id="guide-title">慢慢来，小球在等你</h2>
         <p>摸摸小球，或推门去庄园。这里没有任务，随时可以停下来。</p>
         <ul>
-          <li>摇铃唤羊：邀请牧羊人和羊群来到庄园。</li>
+          <li>散步与摸摸：点击草地让小球散步，轻点小球陪它互动。</li>
+          <li>吃点东西：点击庭院里的食盆，或在“随手操作 → 陪小球玩”中选择“喂食”。</li>
+          <li>洗洗脸：点击池塘，或在“陪小球玩”中选择“清洁”。</li>
+          <li>一起玩：点击草地上的小球玩具，或在“陪小球玩”中选择“玩耍”。</li>
+          <li>树下休息：让小球散步到树下，再在“陪小球玩”中选择“休息”。</li>
+          <li>摇铃唤羊：点击庭院里的铃铛，或点“摇铃唤羊”，邀请牧羊人和羊群来到庄园。</li>
+          <li>回小屋：点击大屋的房门，或点“回小屋”。离开试玩可点左上角“离开小屋”。</li>
+          <li>带小球回家：点击庭院里的桌面小屋，或右上角“桌面小屋”，查看购买、下载和打开 APP 的入口。</li>
           <li>环境声与时刻：听风声，换一片天，也能暂停昼夜。</li>
           <li>拖动空白处转动镜头；庄园滚轮缩放，也可用下方镜头按钮。</li>
           <li>拖住小球再松手；也可点“抓取”，用方向按钮调整后释放。</li>
@@ -53,6 +60,19 @@
     <p class="world-status" id="status" role="status"></p>
   </main>
   <div id="loading"><p>小屋里亮起了一盏灯……</p><noscript>开启 JavaScript 后可以进入小屋。<a href="index.html">返回首页</a></noscript></div>
+  <dialog id="desktop-house" aria-labelledby="desktop-house-title" aria-describedby="desktop-house-intro">
+    <button class="house-close" aria-label="关闭桌面小屋" autofocus>×</button>
+    <div class="house-illustration" aria-hidden="true">⌂</div>
+    <p class="house-eyebrow">从庭院，到你的桌面</p>
+    <h2 id="desktop-house-title">给小球一个桌面上的家</h2>
+    <p id="desktop-house-intro">在这里和小球玩一会儿。喜欢这份陪伴，就把它带到你的桌面。</p>
+    <section class="house-choice"><h3>第一次带小球回家</h3><p>了解桌面版，购买后下载安装。</p><div class="house-actions"><a data-desktop-link="purchaseUrl">购买桌面版</a><a data-desktop-link="downloadUrl">下载安装</a></div><p class="house-pending" data-commerce-pending hidden>桌面版的购买与下载入口即将开放。现在可以继续在庭院试玩。</p></section>
+    <section class="house-choice"><h3>已经安装好了？</h3><p>打开电脑上的小球，继续陪伴。</p><a data-desktop-link="launchUrl">打开桌面 APP</a><p class="house-pending" data-launch-pending hidden>桌面 APP 的打开入口即将开放。</p></section>
+    <p class="house-feedback" role="status" id="house-feedback"></p>
+    <button class="house-return">继续在庭院玩</button>
+  </dialog>
+  <script src="assets/js/site-config.js"></script>
+  <script src="assets/js/desktop-house.js"></script>
   <script src="assets/js/pet-storage.js"></script>
   <script type="module" src="assets/js/pet-world-entry.js?v=roomlife3"></script>
 </body>

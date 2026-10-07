@@ -19,3 +19,18 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#d9e7d7;col
 
 .keyboard-help{margin-bottom:var(--space-3)}.keyboard-help>summary{background:transparent;border:0;padding-left:0}.world-control-body>details+details{margin-top:var(--space-2)}
 canvas:focus-visible{outline:3px solid var(--color-accent);outline-offset:-3px}
+
+.world-top-actions{display:flex;gap:var(--space-2);pointer-events:auto}
+#desktop-house{box-sizing:border-box;width:min(460px,calc(100% - 24px));max-height:calc(100dvh - 32px);overflow:auto;border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:var(--space-6);background:var(--color-surface-solid);color:var(--color-text);box-shadow:var(--shadow-soft);font-size:var(--font-size-sm)}
+#desktop-house::backdrop{background:rgba(34,35,31,.45)}
+#desktop-house h2{font-family:var(--font-serif);font-size:var(--font-size-xl);margin:var(--space-2) 0 var(--space-3)}
+#desktop-house p{line-height:1.7}#desktop-house h3{font-size:var(--font-size-base);margin:0}
+.house-illustration{display:grid;place-items:center;width:72px;height:72px;border-radius:var(--radius-lg);background:var(--color-sage-soft);font-size:56px;color:var(--color-sage)}
+.house-eyebrow{color:var(--color-sage);margin-bottom:0}.house-choice{border-top:1px solid var(--color-border);padding-top:var(--space-4);margin-top:var(--space-5)}.house-choice p{color:var(--color-muted);margin:var(--space-2) 0 var(--space-3)}
+#desktop-house a,#desktop-house button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;border:1px solid var(--color-border);border-radius:var(--radius-md);padding:var(--space-2) var(--space-4);font:inherit;cursor:pointer;background:var(--color-sage-soft);color:var(--color-text);text-decoration:none;box-sizing:border-box}
+#desktop-house [hidden]{display:none}.house-actions{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+#desktop-house [data-desktop-link="purchaseUrl"]{background:var(--color-accent);color:var(--color-surface-solid)}
+#desktop-house .house-close{position:absolute;right:var(--space-3);top:var(--space-3);font-size:var(--font-size-lg);background:transparent;padding:var(--space-2) var(--space-3)}
+#desktop-house .house-return{width:100%;margin-top:var(--space-3);background:transparent}.house-feedback:empty{display:none}
+#desktop-house :focus-visible{outline:3px solid var(--color-accent);outline-offset:3px}
+@media(max-width:390px){.world-top{gap:var(--space-1)}.world-top-actions{gap:var(--space-1)}.world-top a,.world-top button{padding:var(--space-2);font-size:var(--font-size-xs)}#desktop-house{padding:var(--space-5)}}
