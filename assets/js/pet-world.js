@@ -9,7 +9,9 @@ import {createPetSkin} from './pet-skin.js?v=softblack3';
 import {createDayNight} from './pet-daynight.js';
 import {createWildlife} from './pet-wildlife.js';
 import {createSoundscape} from './pet-soundscape.js';
-let experience,daynight,wildlife,soundscape,flockBell,flockBellAge=10;
+import {createStyleSystem} from './pet-style.js';
+import {createDebugPanel} from './pet-debug.js';
+let experience,daynight,wildlife,soundscape,artStyles,debugPanel,flockBell,flockBellAge=10;
 
 const host=document.querySelector('#world'),status=document.querySelector('#status');
 const reduced=matchMedia('(prefers-reduced-motion: reduce)'),mobile=matchMedia('(max-width:700px)').matches;
@@ -25,7 +27,7 @@ const scene=new T.Scene();scene.background=new T.Color('#dce8db');scene.fog=new 
 const camera=new T.PerspectiveCamera(38,1,.1,100);
 const ambient=new T.HemisphereLight(0xf5f4e5,0x799b91,2.8);scene.add(ambient);
 const sun=new T.DirectionalLight(0xffead0,2);sun.position.set(-9,16,8);sun.castShadow=true;
-sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-16,right:16,top:16,bottom:-16,near:.1,far:50});sun.shadow.normalBias=.05;scene.add(sun);
+sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-22,right:22,top:22,bottom:-22,near:.1,far:110});sun.shadow.normalBias=.05;sun.shadow.camera.updateProjectionMatrix();scene.add(sun);
 const mat=color=>painted(color);
 const green=mat('#82a36c'),bark=mat('#8c795b'),cream=mat('#eedeb5'),stone=mat('#b6bfaa'),roof=mat('#74956c'),wood=mat('#967650');
 const sphere=new T.SphereGeometry(1,24,16),box=new T.BoxGeometry(1,1,1);
@@ -36,11 +38,12 @@ const landGeo=new T.PlaneGeometry(100,100,70,70);landGeo.rotateX(-Math.PI/2);
 const lp=landGeo.attributes.position;for(let i=0;i<lp.count;i++)lp.setY(i,height(lp.getX(i),lp.getZ(i)));landGeo.computeVertexNormals();
 const groundColors=[];for(let i=0;i<lp.count;i++){const x=lp.getX(i),z=lp.getZ(i),n=(Math.sin(x*.43+z*.24)+Math.cos(z*.37-x*.13))*.5;const c=new T.Color().setHSL(.235+n*.015,.23,.48+n*.035);groundColors.push(c.r,c.g,c.b);}landGeo.setAttribute('color',new T.Float32BufferAttribute(groundColors,3));green.vertexColors=true;
 const land=mesh(landGeo,green,0,0,0);
+green.userData.manorOutlineExclude=true;
 green.color.set('#749b76');
 const wind={value:0};
 // One opaque water draw; no reflection or refraction render targets.
-const waterMat=new T.ShaderMaterial({uniforms:{time:{value:0},dayTint:{value:new T.Color('#ffffff')}},vertexShader:'varying vec2 p;void main(){p=position.xy;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:`
-varying vec2 p;uniform float time;uniform vec3 dayTint;
+const waterMat=new T.ShaderMaterial({uniforms:{artStyle:{value:1},time:{value:0},dayTint:{value:new T.Color('#ffffff')}},vertexShader:'varying vec2 p;void main(){p=position.xy;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:`
+varying vec2 p;uniform float time;uniform vec3 dayTint;uniform float artStyle;
 void main(){
   float edge=length(p),wave=sin(p.x*19.+p.y*31.+time*.7)*.006+sin(p.y*53.-time*.4)*.003;
   vec3 col=mix(vec3(.105,.31,.29),vec3(.41,.62,.46),smoothstep(.2,1.,edge));
@@ -50,6 +53,9 @@ void main(){
   col+=vec3(.29,.32,.21)*streak*smoothstep(.3,.8,sin(p.x*22.+p.y*6.))*.45;
   float shore=smoothstep(.973,.985,edge+wave)*(1.-smoothstep(.989,1.,edge+wave));
   col=mix(col,vec3(.79,.83,.59),shore*.65);
+  if(artStyle>1.5&&artStyle<2.5)col=floor(col*7.+.5)/7.;
+  if(artStyle>2.5&&artStyle<3.5)col=mix(col,vec3(.64,.76,.69),.18);
+  if(artStyle>3.5){col=floor(col*9.+.5)/9.;col*=vec3(.96,.98,1.03);}
   gl_FragColor=vec4(col*dayTint,1.);
 }`});
 const pond=mesh(new T.CircleGeometry(1,64),waterMat,5.3,.16,1.5,3.4,2.35,1);pond.rotation.x=-Math.PI/2;
@@ -79,9 +85,13 @@ const dummy=new T.Object3D();
 const hillMat=mat('#9bab95');for(const [x,z,sx,sy] of [[-19,-28,16,6],[0,-36,22,7],[24,-29,18,5]])mesh(sphere,hillMat,x,0,z,sx,sy,11);
 const cloudMat=new T.MeshBasicMaterial({color:'#edf0e2',fog:true});
 for(let i=0;i<8;i++)mesh(sphere,cloudMat,-23+i*7,10+Math.sin(i)*2,-35,3.5,1,1.6);
-const trees=[[-7,-4,1.3],[-8,3,.95],[.5,-7,1],[7,-6,1.1],[11,0,.85],[-12,-10,1.2]];
+const trees=[[-7,-4,1.3],[-8,3,.95],[.5,-7,1],[7,-6,1.1],[11,0,.85],[-12,-10,1.2],
+  [-16,-4,1.05],[-18,-11,.9],[-15,-17,1.18],[-9,-18,.86],[-4,-22,1.12],[3,-17,.83],
+  [8,-23,1.2],[14,-17,.98],[20,-13,1.13],[17,-5,.92],[22,1,1.1],[17,8,.83],
+  [-16,6,.88],[-21,11,1.02],[-25,-4,.84],[-23,-20,1.1],[-13,-27,.95],
+  [0,-29,1.05],[21,-24,.95],[27,-8,1.08]];
 const garden=createGardenDetails(scene,height);
-const vegetation=createVegetation({scene,wind,height,trees,mobile,localLights:garden.lights});
+const vegetation=createVegetation({scene,wind,height,trees,mobile,sun,ambient,localLights:garden.lights});
 const count=vegetation.grassCount,leafCount=vegetation.leafCount;
 const flowers=new T.InstancedMesh(sphere,mat('#fff0c1'),90);for(let i=0;i<90;i++){dummy.position.set(-7+rand()*6,.3,1+rand()*6);dummy.scale.set(.08,.06,.08);dummy.updateMatrix();flowers.setMatrixAt(i,dummy.matrix);}scene.add(flowers);
 // Original supplied model: body, two separate short appendages, white eyes.
@@ -125,9 +135,10 @@ cottagePart(box,stone,0,.035,.94,1.05,.07,.56);
 
 function walkable(x,z){return Math.hypot((x-5.3)/3.9,(z-1.5)/2.9)>1&&Math.hypot((x+3.7)/2.5,(z+3.6)/2)>1&&!(Math.abs(x-1.1)<1.15&&Math.abs(z+5.4)<1)&&trees.every(([tx,tz])=>Math.hypot(x-tx,z-tz)>.8);}
 function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();experience?.resize();}addEventListener('resize',resize);resize();
-let frame=0,last=0,time=0,slow=0,frames=0,total=0;const offset=new T.Vector3();
-function tick(ms){frame=requestAnimationFrame(tick);if(ms-last<1000/(mobile?30:60)-1)return;const elapsed=(ms-last)/1000,dt=Math.min(elapsed,.05);last=ms;time+=dt;wind.value=reduced.matches?0:time;waterMat.uniforms.time.value=reduced.matches?0:time;
+let frame=0,last=0,time=0,slow=0,frames=0,total=0,renderedFrames=0;const offset=new T.Vector3();
+function tick(ms){frame=requestAnimationFrame(tick);if(ms-last<1000/(mobile?30:60)-1)return;const debugStart=debugPanel.beginFrame();const elapsed=(ms-last)/1000,dt=Math.min(elapsed,.05);last=ms;time+=dt;wind.value=reduced.matches?0:time;waterMat.uniforms.time.value=reduced.matches?0:time;
 daynight.update(dt,time);
+artStyles.update();
 flockBellAge+=dt;if(flockBell)flockBell.rotation.z=reduced.matches?0:Math.sin(flockBellAge*15)*Math.exp(-flockBellAge*4)*.3;
 const phase=daynight.diagnostics().phase;wildlife.update(dt,time,phase,pet,experience.mode,reduced.matches);
 experience.setLifeContext({phase,bird:wildlife.bird,firefly:garden.lights[4].position});
@@ -138,12 +149,15 @@ const active=ms/1000-actionTime<1.2;
 ball.position.y=.3+(active&&action==='play'&&!reduced.matches?Math.abs(Math.sin(time*5))*.4:0);
 motes.visible=active&&experience.mode==='garden';for(let i=0;active&&i<12;i++){const a=i/12*Math.PI*2,phase=(ms/1000-actionTime)/1.2;dummy.position.set(pet.position.x+Math.cos(a)*(.5+phase*.3),pet.position.y+.9+phase*.8,pet.position.z+Math.sin(a)*(.5+phase*.3));dummy.scale.setScalar(.035*(1-phase));dummy.updateMatrix();motes.setMatrixAt(i,dummy.matrix);}if(active)motes.instanceMatrix.needsUpdate=true;
 ripples.forEach((r,i)=>{const p=reduced.matches?i/3:(time*.2+i/3)%1;r.scale.setScalar(.4+p*1.3);r.material.opacity=(1-p)*.25;});
-renderer.info.reset();finish.render(experience.scene,experience.camera,experience.mode==='room',pet);
-total+=elapsed;frames++;if(frames===180){if(total/frames>.027&&!mobile&&slow<2){slow++;renderer.setPixelRatio(Math.max(.85,renderer.getPixelRatio()-.25));}frames=0;total=0;}}
+renderer.info.reset();finish.render(experience.scene,experience.camera,experience.mode==='room',pet);renderedFrames++;
+debugPanel.endFrame(ms,debugStart);
+// A one-off shader compile or paused tab must not permanently reduce clarity.
+// Sustained 30 FPS still exceeds the threshold and keeps the existing fallback.
+total+=Math.min(elapsed,.05);frames++;if(frames===180){if(total/frames>.027&&!mobile&&slow<2){slow++;vegetation.reduce();finish.reduce();renderer.setPixelRatio(Math.max(.85,renderer.getPixelRatio()-.25));}frames=0;total=0;}}
 document.addEventListener('visibilitychange',()=>{cancelAnimationFrame(frame);if(!document.hidden){last=performance.now();frame=requestAnimationFrame(tick);}});
 const settle=setInterval(()=>{state=window.PetStorage.settle(state);window.PetStorage.save(state);experience?.setRoomState(state);},60000);
 canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();cancelAnimationFrame(frame);const el=document.querySelector('#loading');el.hidden=false;el.innerHTML='<p>庭院暂时休息了，请刷新页面重新进入。</p><a href="index.html">返回首页</a>';});
-addEventListener('pagehide',e=>{if(e.persisted)return;cancelAnimationFrame(frame);clearInterval(settle);soundscape?.dispose();daynight?.dispose();experience?.dispose();finish.dispose();vegetation.dispose();const gs=new Set(),ms=new Set();scene.traverse(o=>{if(o.geometry)gs.add(o.geometry);if(o.material)ms.add(o.material);});gs.forEach(g=>g.dispose());ms.forEach(m=>{m.map?.dispose();m.dispose();});renderer.dispose();});
+addEventListener('pagehide',e=>{if(e.persisted)return;cancelAnimationFrame(frame);clearInterval(settle);debugPanel?.dispose();artStyles?.dispose();soundscape?.dispose();daynight?.dispose();experience?.dispose();finish.dispose();vegetation.dispose();const gs=new Set(),ms=new Set();scene.traverse(o=>{if(o.geometry)gs.add(o.geometry);if(o.material)ms.add(o.material);});gs.forEach(g=>g.dispose());ms.forEach(m=>{m.map?.dispose();m.dispose();});renderer.dispose();});
 // Merge static opaque props by material and shadow policy.
 const batches=new Map();
 for(const o of [...scene.children]){
@@ -171,6 +185,8 @@ addEventListener('pagehide',e=>{if(!e.persisted){summonButton.removeEventListene
 // Refresh moving sunlight at a bounded rate; leaf sway stays inexpensive.
 renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
 mountWorldControls(experience);
+artStyles=createStyleSystem({renderer,finish,scenes:[scene,experience.room.scene],ambient,sun,room:experience.room,water:waterMat,status});
+debugPanel=createDebugPanel({renderer,targetFps:mobile?30:60,readScene:()=>({mode:experience.mode,style:artStyles.diagnostics(),vegetation:experience.mode==='garden'?vegetation.diagnostics():null})});
 document.querySelector('#loading').hidden=true;frame=requestAnimationFrame(tick);
 
-export function getWorldDiagnostics(){return {wildlife:wildlife.diagnostics(),sound:soundscape.diagnostics(),daynight:daynight.diagnostics(),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,pixelRatio:renderer.getPixelRatio(),grassInstances:count,leafInstances:leafCount,state:{name:state.name,satiety:state.satiety,mood:state.mood},reducedMotion:reduced.matches,...experience.diagnostics()};}
+export function getWorldDiagnostics(){return {debug:debugPanel.diagnostics(),artStyle:artStyles.diagnostics(),wildlife:wildlife.diagnostics(),sound:soundscape.diagnostics(),daynight:daynight.diagnostics(),renderedFrames,vegetation:vegetation.diagnostics(),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,pixelRatio:renderer.getPixelRatio(),grassInstances:count,leafInstances:leafCount,state:{name:state.name,satiety:state.satiety,mood:state.mood},reducedMotion:reduced.matches,...experience.diagnostics()};}

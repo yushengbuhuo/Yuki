@@ -14,7 +14,7 @@ export function createDayNight({scene,sun,ambient,room,vegetation,water,clouds,g
   const colors=stops.map(s=>Object.fromEntries(['sky','light','ground','tint'].map(k=>[k,new T.Color(s[k])])));
   const dials=[];
   function announce(){status.textContent=stops[Math.round(phase)%5].name+' · '+(paused?'时间已暂停':'昼夜缓缓流转')+'。点击钟面或按 T 切换时刻，点击钟旁圆钮或按 P 暂停。';}
-  function next(){travel=(Math.floor(phase+travel+.001)+1)-phase;if(reduced.matches){phase=(phase+travel)%5;travel=0;}announce();}
+  function next(){travel=(Math.floor(phase+travel+.001)+1)-phase;if(reduced.matches){phase=(phase+travel)%5;travel=0;}renderer.shadowMap.needsUpdate=true;announce();}
   function toggle(){paused=!paused;const button=document.querySelector('[data-time-pause]');button.setAttribute('aria-pressed',String(paused));button.textContent=paused?'继续昼夜（P）':'暂停昼夜（P）';announce();}
   function clock(parent,position,outdoor=false){
     const group=new T.Group();group.position.set(...position);if(outdoor)group.rotation.x=-.65;parent.add(group);
@@ -42,13 +42,13 @@ export function createDayNight({scene,sun,ambient,room,vegetation,water,clouds,g
 
   const moon=new T.Mesh(new T.SphereGeometry(.7,20,12),new T.MeshBasicMaterial({color:'#f3e6c7',fog:false}));moon.position.set(0,13,-27);scene.add(moon);
   function update(dt,time){
-    if(travel>0){const step=Math.min(travel,dt*.55);phase+=step;travel-=step;}else if(!paused)phase+=dt/360;
+    if(travel>0){const step=Math.min(travel,dt*.55);phase+=step;travel-=step;if(travel===0)renderer.shadowMap.needsUpdate=true;}else if(!paused)phase+=dt/360;
     phase%=5;
     const i=Math.floor(phase),j=(i+1)%5,f=T.MathUtils.smoothstep(phase-i,0,1),a=stops[i],b=stops[j];
     const mix=k=>T.MathUtils.lerp(a[k],b[k],f);
     for(const [key,value] of [['sky',sky],['light',light],['ground',ground],['tint',tint]])value.copy(colors[i][key]).lerp(colors[j][key],f);
     const night=mix('night');garden.update(night,time,reduced.matches);scene.background.copy(sky);scene.fog.color.copy(sky);
-    ambient.color.copy(light);ambient.groundColor.copy(ground);ambient.intensity=mix('ambient');sun.color.copy(light);sun.intensity=mix('sun');sun.position.set(mix('x'),mix('y'),8);
+    ambient.color.copy(light);ambient.groundColor.copy(ground);ambient.intensity=mix('ambient');sun.color.copy(light);sun.intensity=mix('sun');sun.position.set(mix('x'),mix('y'),8).multiplyScalar(2);
     vegetation.setDaylight(tint);water.uniforms.dayTint.value.copy(tint);clouds.color.copy(sky).lerp(light,.35);
     windowMaterial.emissive.set('#ffd293');windowMaterial.emissiveIntensity=night*1.4;
     const r=room.lighting;r.ambient.color.copy(light);r.ambient.groundColor.copy(ground);r.ambient.intensity=1.8-night*.85;r.sun.color.copy(light);r.sun.intensity=3.2*(1-night)+.48*night;r.sun.position.set(-3.8+mix('x')*.13,5+mix('y')*.06,4);

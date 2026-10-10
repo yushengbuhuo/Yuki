@@ -14,6 +14,48 @@
     <h1 class="accessible">小球的小屋与庄园</h1>
     <aside class="world-ui" aria-label="场景操作">
       <div class="world-top"><a href="index.html">离开小屋</a><div class="world-top-actions"><button data-desktop-house aria-haspopup="dialog">⌂ 桌面小屋</button><button id="guide-open" aria-expanded="false" aria-controls="world-guide">玩法提示</button></div></div>
+      <details class="art-controls" open>
+        <summary>画面风格</summary>
+        <div class="art-control-body">
+          <label for="art-style">选择风格</label>
+          <select id="art-style">
+            <option value="lowpoly">LowPoly＋克制手绘</option>
+            <option value="cel">卡通色块</option>
+            <option value="paper">纸艺立体书</option>
+            <option value="print">版画绘本</option>
+            <option value="vivid-print">鲜彩版画</option>
+            <option value="original">原始效果 · 对照</option>
+          </select>
+          <p id="art-style-note" aria-live="polite"></p>
+          <label for="art-detail">材质笔触强度</label>
+          <input id="art-detail" type="range" min="0" max="1.5" step="0.05" value="1">
+          <label for="art-glow">暖光辉光 · 拉到零关闭</label>
+          <input id="art-glow" type="range" min="0" max="1" step="0.05" value="0.35">
+          <label class="art-check"><input id="art-dof" type="checkbox">景深虚化</label>
+          <details class="outline-controls" open>
+            <summary>描边调节</summary>
+            <div class="outline-body">
+              <label class="art-check"><input id="art-outline-enabled" type="checkbox" checked>近景笔触描边</label>
+              <label for="art-outline-width">粗细 <output id="outline-width-value" for="art-outline-width">1.6 px</output></label>
+              <input id="art-outline-width" type="range" min="0" max="4" step="0.1" value="1.6">
+              <label for="art-outline-strength">浓淡 <output id="outline-strength-value" for="art-outline-strength">0.70</output></label>
+              <input id="art-outline-strength" type="range" min="0" max="1" step="0.05" value="0.7">
+              <label for="art-outline-brush">笔触感 <output id="outline-brush-value" for="art-outline-brush">0.60</output></label>
+              <input id="art-outline-brush" type="range" min="0" max="1" step="0.05" value="0.6">
+              <label for="art-outline-scale">笔触密度 <output id="outline-scale-value" for="art-outline-scale">1.0×</output></label>
+              <input id="art-outline-scale" type="range" min="0.25" max="3" step="0.05" value="1">
+              <p>关闭近景描边仍保留原有山、云描边。笔触感为零时线条均匀。</p>
+            </div>
+          </details>
+        </div>
+      </details>
+      <details id="debug-panel" class="debug-panel">
+        <summary>Debug · 性能</summary>
+        <div class="debug-body">
+          <dl aria-label="实时运行数据"></dl>
+          <p>每 0.5 秒刷新。CPU 耗时不含 GPU 执行与等待；收起面板停止采样。</p>
+        </div>
+      </details>
       <section id="world-guide" class="world-guide" aria-labelledby="guide-title" hidden>
         <h2 id="guide-title">慢慢来，小球在等你</h2>
         <p>摸摸小球，或推门去庄园。这里没有任务，随时可以停下来。</p>
@@ -74,6 +116,6 @@
   <script src="assets/js/site-config.js"></script>
   <script src="assets/js/desktop-house.js"></script>
   <script src="assets/js/pet-storage.js"></script>
-  <script type="module" src="assets/js/pet-world-entry.js?v=roomlife3"></script>
+  <script type="module" src="assets/js/pet-world-entry.js?v=artstyles1"></script>
 </body>
 </html>

@@ -4,6 +4,7 @@ import * as T from '../vendor/three/package/build/three.module.js';
 // transmission approximation is evaluated in the existing forward light pass.
 export function createPetSkin(){
   const skin=new T.MeshLambertMaterial({color:'#484848',emissive:'#030303'});
+  skin.userData.manorExclude=true;
   skin.onBeforeCompile=shader=>{
     shader.fragmentShader=shader.fragmentShader.replace(
       '#include <lights_lambert_pars_fragment>',
