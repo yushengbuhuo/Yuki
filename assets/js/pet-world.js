@@ -1,11 +1,10 @@
 import {mountWorldControls} from './pet-world-controls.js';
 import * as T from '../vendor/three/package/build/three.module.js';
 import {createGardenDetails} from './pet-garden-details.js';
-import {originalGeometry} from './pet-source.js';
+import {loadManorAssets} from './pet-assets.js';
 import {createPetExperience} from './pet-experience.js?v=roomlife3';
 import {painted,createFinish,archGeometry} from './pet-art.js';
 import {createVegetation} from './pet-vegetation.js';
-import {createPetSkin} from './pet-skin.js?v=softblack3';
 import {createDayNight} from './pet-daynight.js';
 import {createWildlife} from './pet-wildlife.js';
 import {createSoundscape} from './pet-soundscape.js';
@@ -15,6 +14,9 @@ let experience,daynight,wildlife,soundscape,artStyles,debugPanel,flockBell,flock
 
 const host=document.querySelector('#world'),status=document.querySelector('#status');
 const reduced=matchMedia('(prefers-reduced-motion: reduce)'),mobile=matchMedia('(max-width:700px)').matches;
+const assetKit=await loadManorAssets(document.querySelector('#loading'));
+const jellyInput=document.querySelector('#art-jelly');jellyInput.value=assetKit.strength;
+const onJelly=()=>{assetKit.setStrength(jellyInput.value);renderer.shadowMap.needsUpdate=true;};jellyInput.addEventListener('input',onJelly);
 let renderer;
 try {renderer=new T.WebGLRenderer({antialias:true,powerPreference:'low-power'});} catch(e){document.querySelector('#loading').innerHTML='<p>设备暂时无法开启三维庭院。</p><a href="index.html">返回首页</a>';throw e;}
 renderer.setPixelRatio(Math.min(devicePixelRatio,mobile?1.25:1.5));
@@ -59,7 +61,8 @@ void main(){
   gl_FragColor=vec4(col*dayTint,1.);
 }`});
 const pond=mesh(new T.CircleGeometry(1,64),waterMat,5.3,.16,1.5,3.4,2.35,1);pond.rotation.x=-Math.PI/2;
-for(let i=0;i<23;i++){const a=i/23*Math.PI*2,x=5.3+Math.cos(a)*3.45,z=1.5+Math.sin(a)*2.38;const rock=mesh(sphere,stone,x,.17,z,.28+rand()*.28,.13+rand()*.15,.22+rand()*.25);rock.rotation.y=rand()*6.28;}
+const pondRocks=assetKit.instanced('Manor_Rock_01',23,scene),rockTransform=new T.Object3D();
+for(let i=0;i<23;i++){const a=i/23*Math.PI*2,x=5.3+Math.cos(a)*3.45,z=1.5+Math.sin(a)*2.38;rockTransform.position.set(x,.06,z);rockTransform.rotation.y=rand()*6.28;rockTransform.scale.setScalar(.64+rand()*.22);rockTransform.updateMatrix();pondRocks.setMatrixAt(i,rockTransform.matrix);}pondRocks.computeBoundingSphere();
 const lilyMat=mat('#8ba77c');
 for(let i=0;i<7;i++){const x=5.5+Math.sin(i*3)*1.4,z=1.5+Math.cos(i*2)*1.2;const pad=mesh(new T.CircleGeometry(.19+rand()*.12,24, .12,Math.PI*2-.25),lilyMat,x,.175,z);pad.rotation.x=-Math.PI/2;}
 const ripples=[];for(let i=0;i<3;i++){const o=mesh(new T.RingGeometry(.91,1,32),new T.MeshBasicMaterial({color:0xe7f0cf,transparent:true,opacity:.25,depthWrite:false}),4.8,.18,1.4);o.rotation.x=-Math.PI/2;ripples.push(o);}
@@ -90,14 +93,11 @@ const trees=[[-7,-4,1.3],[-8,3,.95],[.5,-7,1],[7,-6,1.1],[11,0,.85],[-12,-10,1.2
   [8,-23,1.2],[14,-17,.98],[20,-13,1.13],[17,-5,.92],[22,1,1.1],[17,8,.83],
   [-16,6,.88],[-21,11,1.02],[-25,-4,.84],[-23,-20,1.1],[-13,-27,.95],
   [0,-29,1.05],[21,-24,.95],[27,-8,1.08]];
-const garden=createGardenDetails(scene,height);
+const garden=createGardenDetails(scene,height,assetKit);
 const vegetation=createVegetation({scene,wind,height,trees,mobile,sun,ambient,localLights:garden.lights});
 const count=vegetation.grassCount,leafCount=vegetation.leafCount;
 const flowers=new T.InstancedMesh(sphere,mat('#fff0c1'),90);for(let i=0;i<90;i++){dummy.position.set(-7+rand()*6,.3,1+rand()*6);dummy.scale.set(.08,.06,.08);dummy.updateMatrix();flowers.setMatrixAt(i,dummy.matrix);}scene.add(flowers);
-// Original supplied model: body, two separate short appendages, white eyes.
-const pet=new T.Group();scene.add(pet);pet.scale.setScalar(.33);
-const skin=createPetSkin(),eyeMat=new T.MeshBasicMaterial({color:'#fff5df',toneMapped:false,fog:false});
-for(const role of ['body','footLeft','footRight','eyeLeft','eyeRight']){const o=mesh(originalGeometry(role),role.startsWith('eye')?eyeMat:skin,0,0,0,1,1,1,pet);o.castShadow=!role.startsWith('eye');o.userData.role=role;}
+const pet=assetKit.createHero();scene.add(pet);pet.scale.setScalar(.33);
 let state=window.PetStorage.load().state,lastAction=-10,actionTime=-10,action='';
 const target=new T.Vector3(0,0,1),ray=new T.Raycaster(),pointer=new T.Vector2(),hits=[];
 function perform(a){const now=performance.now()/1000;if(now-lastAction<1.2)return;lastAction=now;action=a;actionTime=now;state=window.PetStorage.interact(state,a);const saved=window.PetStorage.save(state);status.textContent=({feed:'小球吃饱了。',pet:'小球开心地蹭了蹭你。',play:'一起玩一会儿。',sleep:'小球在树下休息。',clean:'溪水洗掉了身上的灰。'})[a]+(saved?'':' 本次进度未能保存。');}
@@ -122,6 +122,21 @@ const food=mat('#c88955');for(let i=0;i<5;i++)mesh(sphere,food,-2+(rand()-.5)*.3
 const ball=mesh(sphere,mat('#d8a077'),1,.3,4.6,.27);ball.userData.activate=()=>perform('play');hits.push(ball);
 door.userData.activate=()=>perform('sleep');hits.push(door);
 
+const propObstacles=[...garden.obstacles];
+for(const [name,x,z,scale,yaw,radius] of [
+ ['Manor_HandWaterPump_01',-.05,-2.6,1.15,-.35,.38],
+ ['Manor_HayBale_01',-6.5,4.65,1.2,.2,.65],
+ ['Manor_LogPile_01',-6.8,-1.65,1.2,.4,.6],
+ ['Manor_Pumpkin_01',-7,5.5,.62,.7,.3],
+ ['Manor_Pumpkin_01',-6.2,5.7,.45,-.4,.23],
+ ['Manor_Birdhouse_01',8.7,-4.4,1.65,-.4,.4],
+ ['Manor_WoodenSignpost_01',1.3,-3,1.35,-.2,.32]
+]){
+ const a=assetKit.place(name,{parent:scene,position:[x,height(x,z),z],scale,yaw,targets:hits,onActivate:()=>{status.textContent=name.includes('Pump')?'压一压水泵，清凉的水声在花园里响起。':'轻轻碰一碰，庄园里的小物件晃了晃。';if(name.includes('Pump'))perform('clean');}});
+ propObstacles.push({x,z,r:radius});
+}
+hits.push(...garden.targets);
+
 // A separate desktop cottage keeps the original room entrance available.
 const desktopCottage=new T.Group();scene.add(desktopCottage);
 desktopCottage.position.set(1.1,height(1.1,-5.4),-5.4);
@@ -133,7 +148,7 @@ cottagePart(archGeometry(.48,.85,.08),wood,0,.04,.68);
 cottagePart(sphere,windowMaterial,-.5,.91,.65,.16,.18,.04);
 cottagePart(box,stone,0,.035,.94,1.05,.07,.56);
 
-function walkable(x,z){return Math.hypot((x-5.3)/3.9,(z-1.5)/2.9)>1&&Math.hypot((x+3.7)/2.5,(z+3.6)/2)>1&&!(Math.abs(x-1.1)<1.15&&Math.abs(z+5.4)<1)&&trees.every(([tx,tz])=>Math.hypot(x-tx,z-tz)>.8);}
+function walkable(x,z){return Math.hypot((x-5.3)/3.9,(z-1.5)/2.9)>1&&Math.hypot((x+3.7)/2.5,(z+3.6)/2)>1&&!(Math.abs(x-1.1)<1.15&&Math.abs(z+5.4)<1)&&trees.every(([tx,tz])=>Math.hypot(x-tx,z-tz)>.8)&&propObstacles.every(p=>Math.hypot(x-p.x,z-p.z)>p.r);}
 function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();experience?.resize();}addEventListener('resize',resize);resize();
 let frame=0,last=0,time=0,slow=0,frames=0,total=0,renderedFrames=0;const offset=new T.Vector3();
 function tick(ms){frame=requestAnimationFrame(tick);if(ms-last<1000/(mobile?30:60)-1)return;const debugStart=debugPanel.beginFrame();const elapsed=(ms-last)/1000,dt=Math.min(elapsed,.05);last=ms;time+=dt;wind.value=reduced.matches?0:time;waterMat.uniforms.time.value=reduced.matches?0:time;
@@ -141,6 +156,7 @@ daynight.update(dt,time);
 artStyles.update();
 flockBellAge+=dt;if(flockBell)flockBell.rotation.z=reduced.matches?0:Math.sin(flockBellAge*15)*Math.exp(-flockBellAge*4)*.3;
 const phase=daynight.diagnostics().phase;wildlife.update(dt,time,phase,pet,experience.mode,reduced.matches);
+if(assetKit.update(dt,time,experience.mode,reduced.matches))renderer.shadowMap.needsUpdate=true;
 experience.setLifeContext({phase,bird:wildlife.bird,firefly:garden.lights[4].position});
 experience.update(dt,ms/1000);experience.resolveActors(wildlife.colliders());soundscape.update(dt,time,experience.mode,phase,pet,experience.moving);soundscape.pull(experience.pullSound);
 for(const event of wildlife.audioEvents())soundscape.emit(event.kind,event.position);
@@ -157,7 +173,7 @@ total+=Math.min(elapsed,.05);frames++;if(frames===180){if(total/frames>.027&&!mo
 document.addEventListener('visibilitychange',()=>{cancelAnimationFrame(frame);if(!document.hidden){last=performance.now();frame=requestAnimationFrame(tick);}});
 const settle=setInterval(()=>{state=window.PetStorage.settle(state);window.PetStorage.save(state);experience?.setRoomState(state);},60000);
 canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();cancelAnimationFrame(frame);const el=document.querySelector('#loading');el.hidden=false;el.innerHTML='<p>庭院暂时休息了，请刷新页面重新进入。</p><a href="index.html">返回首页</a>';});
-addEventListener('pagehide',e=>{if(e.persisted)return;cancelAnimationFrame(frame);clearInterval(settle);debugPanel?.dispose();artStyles?.dispose();soundscape?.dispose();daynight?.dispose();experience?.dispose();finish.dispose();vegetation.dispose();const gs=new Set(),ms=new Set();scene.traverse(o=>{if(o.geometry)gs.add(o.geometry);if(o.material)ms.add(o.material);});gs.forEach(g=>g.dispose());ms.forEach(m=>{m.map?.dispose();m.dispose();});renderer.dispose();});
+addEventListener('pagehide',e=>{if(e.persisted)return;cancelAnimationFrame(frame);clearInterval(settle);debugPanel?.dispose();artStyles?.dispose();soundscape?.dispose();daynight?.dispose();experience?.dispose();assetKit.dispose();jellyInput.removeEventListener('input',onJelly);finish.dispose();vegetation.dispose();const gs=new Set(),ms=new Set();scene.traverse(o=>{if(o.geometry)gs.add(o.geometry);if(o.material)ms.add(o.material);});gs.forEach(g=>g.dispose());ms.forEach(m=>{m.map?.dispose();m.dispose();});renderer.dispose();});
 // Merge static opaque props by material and shadow policy.
 const batches=new Map();
 for(const o of [...scene.children]){
@@ -169,12 +185,12 @@ if(objects.length<2)continue;const positions=[],normals=[],uvs=[];
 for(const o of objects){o.updateMatrix();const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();g.applyMatrix4(o.matrix);positions.push(...g.attributes.position.array);normals.push(...g.attributes.normal.array);if(g.attributes.uv)uvs.push(...g.attributes.uv.array);else for(let i=0;i<g.attributes.position.count;i++)uvs.push(0,0);g.dispose();scene.remove(o);}
 const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setAttribute('normal',new T.Float32BufferAttribute(normals,3));g.setAttribute('uv',new T.Float32BufferAttribute(uvs,2));g.computeBoundingSphere();const o=mesh(g,objects[0].material,0,0,0);o.castShadow=objects[0].castShadow;
 }
-experience=createPetExperience({renderer,scene,camera,pet,door,land,hits,target,height,walkable,perform,status,reduced,petState:state,onRoomChoice:roomChoice,onHurt(angry){
+experience=createPetExperience({renderer,scene,camera,pet,door,land,hits,target,height,walkable,perform,status,reduced,assetKit,petState:state,onRoomChoice:roomChoice,onHurt(angry){
 state={...state,mood:Math.max(0,state.mood-(angry?8:4)),totalInteractions:state.totalInteractions+1};
 if(!window.PetStorage.save(state))status.textContent+=' 本次进度未能保存。';
 }});
 daynight=createDayNight({scene,sun,ambient,room:experience.room,vegetation,water:waterMat,clouds:cloudMat,garden,windowMaterial,renderer,hits,status,reduced});
-wildlife=createWildlife({scene,height,walkable,mobile,renderer});
+wildlife=createWildlife({scene,height,walkable,mobile,renderer,assetKit,hits,status});
 soundscape=createSoundscape({canvas,scene,room:experience.room,hits,status});
 function summonFlock(){const result=wildlife.flock.invite();flockBellAge=0;soundscape.emit('bell',{x:-5.7,z:5.5});status.textContent=result==='arriving'?'牧羊人和羊群已经在路上，稍等一会儿。':result==='grazing'?'羊群已经在草地上吃草啦。':result==='leaving'?'牧羊人正带羊群前往另一侧，等它们走远后再邀请吧。':'铃声传向远方，牧羊人会带着羊群沿小路走来。';}
 const summonBrass=mat('#c9aa69');flockBell=mesh(new T.CylinderGeometry(.11,.23,.34,20),summonBrass,-5.7,1.52,5.5);flockBell.userData.activate=summonFlock;hits.push(flockBell);
@@ -189,4 +205,4 @@ artStyles=createStyleSystem({renderer,finish,scenes:[scene,experience.room.scene
 debugPanel=createDebugPanel({renderer,targetFps:mobile?30:60,readScene:()=>({mode:experience.mode,style:artStyles.diagnostics(),vegetation:experience.mode==='garden'?vegetation.diagnostics():null})});
 document.querySelector('#loading').hidden=true;frame=requestAnimationFrame(tick);
 
-export function getWorldDiagnostics(){return {debug:debugPanel.diagnostics(),artStyle:artStyles.diagnostics(),wildlife:wildlife.diagnostics(),sound:soundscape.diagnostics(),daynight:daynight.diagnostics(),renderedFrames,vegetation:vegetation.diagnostics(),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,pixelRatio:renderer.getPixelRatio(),grassInstances:count,leafInstances:leafCount,state:{name:state.name,satiety:state.satiety,mood:state.mood},reducedMotion:reduced.matches,...experience.diagnostics()};}
+export function getWorldDiagnostics(){return {assets:assetKit.diagnostics(),debug:debugPanel.diagnostics(),artStyle:artStyles.diagnostics(),wildlife:wildlife.diagnostics(),sound:soundscape.diagnostics(),daynight:daynight.diagnostics(),renderedFrames,vegetation:vegetation.diagnostics(),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,pixelRatio:renderer.getPixelRatio(),grassInstances:count,leafInstances:leafCount,state:{name:state.name,satiety:state.satiety,mood:state.mood},reducedMotion:reduced.matches,...experience.diagnostics()};}

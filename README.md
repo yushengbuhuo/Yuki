@@ -11,6 +11,7 @@
 - `article-detail.html`：保留西湖龙井茶 APP 的旧文章详情文件，当前文章页不提供入口。
 - `about.html`：仅为旧地址保留的内容存档，不再出现在主导航或 sitemap 中。
 - `pet.html`：三维小屋与庄园、实时昼夜、小球互动与本地存档；左上角可切换 LowPoly 手绘、卡通色块、纸艺立体书、版画绘本、鲜彩版画，并与原始效果对照；暖光辉光可调节或关闭。
+- 庄园已接入 `BallManorArt.blend` 的 Qball、10 个动物模型、8 类庄园物件和 4 类室内物件；支持可调 Q 弹动画。资源与实现说明见 [PET-IMPORTED-MODELS.md](PET-IMPORTED-MODELS.md)。
 - `404.html`：迷路小球情境与返回入口。
 
 ## 技术与设计说明

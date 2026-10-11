@@ -1,14 +1,14 @@
-import * as THREE from '../vendor/three/package/build/three.module.js';
-const base=new URL('../models/qball/',import.meta.url);
-const [manifestResponse,meshResponse]=await Promise.all([fetch(new URL('qball.json',base)),fetch(new URL('qball.bin',base))]);
-if(!manifestResponse.ok||!meshResponse.ok)throw new Error('Original pet model could not be loaded');
-const manifest=await manifestResponse.json(),buffer=await meshResponse.arrayBuffer();
+import {GLTFLoader} from '../vendor/three/package/examples/jsm/loaders/GLTFLoader.js';
+// The separate character studio uses the same latest Qball as the manor.
+// Load only the hero here, rather than the entire manor asset library.
+const gltf=await new GLTFLoader().loadAsync(new URL('../models/manor/Qball.glb',import.meta.url).href),parts=new Map();
+gltf.scene.updateMatrixWorld(true);
+const materials=new Set(),textures=new Set();
+gltf.scene.traverse(o=>{if(!o.isMesh)return;
+  const g=o.geometry.clone().applyMatrix4(o.matrixWorld);g.computeBoundingBox();g.computeBoundingSphere();parts.set(o.userData.manorRole,g);o.geometry.dispose();materials.add(o.material);
+});
+for(const m of materials){for(const t of Object.values(m))if(t?.isTexture)textures.add(t);m.dispose();}
+for(const t of textures){t.source?.data?.close?.();t.dispose();}
 export function originalGeometry(role){
-  const part=manifest.parts.find(p=>p.role===role);
-  if(!part)throw new Error(`Missing pet mesh: ${role}`);
-  const g=new THREE.BufferGeometry();
-  g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(buffer,part.positions.offset,part.positions.length).slice(),3));
-  g.setIndex(new THREE.BufferAttribute(new Uint32Array(buffer,part.indices.offset,part.indices.length).slice(),1));
-  g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();
-  return g;
+  const geometry=parts.get(role);if(!geometry)throw new Error('Qball 部位缺失：'+role);return geometry.clone();
 }

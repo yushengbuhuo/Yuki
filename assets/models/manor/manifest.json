@@ -1,0 +1,220 @@
+{
+  "source": "BallManorArt.blend",
+  "sourceSha256": "8e262560fd87dc7ad39fd7649fa10c81e6390055212625c8cd3e842291514569",
+  "models": {
+    "Animal_Bird_01": {
+      "file": "Animal_Bird_01.glb",
+      "bytes": 193956,
+      "triangles": 3218,
+      "evaluatedTriangles": 3218,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Animal_Bird_02": {
+      "file": "Animal_Bird_02.glb",
+      "bytes": 202780,
+      "triangles": 3262,
+      "evaluatedTriangles": 3262,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Animal_Cat_01": {
+      "file": "Animal_Cat_01.glb",
+      "bytes": 224080,
+      "triangles": 3396,
+      "evaluatedTriangles": 3396,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Animal_Cat_02": {
+      "file": "Animal_Cat_02.glb",
+      "bytes": 218700,
+      "triangles": 3254,
+      "evaluatedTriangles": 3254,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Animal_Chicken_01": {
+      "file": "Animal_Chicken_01.glb",
+      "bytes": 236872,
+      "triangles": 3382,
+      "evaluatedTriangles": 3382,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Animal_Dog_01": {
+      "file": "Animal_Dog_01.glb",
+      "bytes": 209604,
+      "triangles": 3134,
+      "evaluatedTriangles": 3134,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Animal_Rabbit_01": {
+      "file": "Animal_Rabbit_01.glb",
+      "bytes": 212204,
+      "triangles": 3360,
+      "evaluatedTriangles": 3360,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Animal_Rabbit_02": {
+      "file": "Animal_Rabbit_02.glb",
+      "bytes": 219684,
+      "triangles": 3676,
+      "evaluatedTriangles": 3676,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Animal_Sheep_01": {
+      "file": "Animal_Sheep_01.glb",
+      "bytes": 240940,
+      "triangles": 3455,
+      "evaluatedTriangles": 3455,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Animal_Sloth_01": {
+      "file": "Animal_Sloth_01.glb",
+      "bytes": 244724,
+      "triangles": 3668,
+      "evaluatedTriangles": 3668,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Interior_BeanbagChair_01": {
+      "file": "Interior_BeanbagChair_01.glb",
+      "bytes": 257052,
+      "triangles": 2833,
+      "evaluatedTriangles": 2833,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Interior_FruitBowl_01": {
+      "file": "Interior_FruitBowl_01.glb",
+      "bytes": 239564,
+      "triangles": 1199,
+      "evaluatedTriangles": 1199,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Interior_RoundSofa_01": {
+      "file": "Interior_RoundSofa_01.glb",
+      "bytes": 518928,
+      "triangles": 2391,
+      "evaluatedTriangles": 2391,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Interior_YarnBasket_01": {
+      "file": "Interior_YarnBasket_01.glb",
+      "bytes": 300116,
+      "triangles": 1707,
+      "evaluatedTriangles": 1707,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Manor_Birdhouse_01": {
+      "file": "Manor_Birdhouse_01.glb",
+      "bytes": 406596,
+      "triangles": 5912,
+      "evaluatedTriangles": 5912,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Manor_HandWaterPump_01": {
+      "file": "Manor_HandWaterPump_01.glb",
+      "bytes": 296100,
+      "triangles": 3180,
+      "evaluatedTriangles": 3180,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Manor_HayBale_01": {
+      "file": "Manor_HayBale_01.glb",
+      "bytes": 276924,
+      "triangles": 3925,
+      "evaluatedTriangles": 3925,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Manor_LogPile_01": {
+      "file": "Manor_LogPile_01.glb",
+      "bytes": 256768,
+      "triangles": 2608,
+      "evaluatedTriangles": 2608,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Manor_Pumpkin_01": {
+      "file": "Manor_Pumpkin_01.glb",
+      "bytes": 203676,
+      "triangles": 2368,
+      "evaluatedTriangles": 2368,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Manor_Rock_01": {
+      "file": "Manor_Rock_01.glb",
+      "bytes": 169408,
+      "triangles": 760,
+      "evaluatedTriangles": 4283,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Manor_StoneLantern_01": {
+      "file": "Manor_StoneLantern_01.glb",
+      "bytes": 257280,
+      "triangles": 2957,
+      "evaluatedTriangles": 2957,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Manor_WoodenSignpost_01": {
+      "file": "Manor_WoodenSignpost_01.glb",
+      "bytes": 271084,
+      "triangles": 3171,
+      "evaluatedTriangles": 3171,
+      "normalized": true,
+      "textureMaxSize": 512
+    },
+    "Qball": {
+      "file": "Qball.glb",
+      "bytes": 107120,
+      "parts": [
+        {
+          "role": "body",
+          "sourceObject": "Qball.003",
+          "triangles": 1320,
+          "evaluatedTriangles": 1320
+        },
+        {
+          "role": "footRight",
+          "sourceObject": "球体.008",
+          "triangles": 768,
+          "evaluatedTriangles": 776
+        },
+        {
+          "role": "footLeft",
+          "sourceObject": "球体.010",
+          "triangles": 768,
+          "evaluatedTriangles": 776
+        },
+        {
+          "role": "eyeLeft",
+          "sourceObject": "球体.011",
+          "triangles": 768,
+          "evaluatedTriangles": 1268
+        },
+        {
+          "role": "eyeRight",
+          "sourceObject": "球体.012",
+          "triangles": 768,
+          "evaluatedTriangles": 1268
+        }
+      ],
+      "triangles": 4392,
+      "canonicalWidth": 3.2
+    }
+  }
+}

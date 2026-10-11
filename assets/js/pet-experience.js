@@ -3,8 +3,10 @@ import {createPetRoom} from './pet-room.js?v=roomlife3';
 import {createSoftBody} from './pet-softbody.js';
 import {createNavigator,GardenWalker} from './pet-navigation.mjs';
 import {ElasticPull,Temper,BallFlight,throwVelocity} from './pet-dynamics.mjs?v=recoil3';
+import {JellyMotion} from './pet-jelly.mjs';
 
-export function createPetExperience({renderer,scene,camera,pet,door,land,hits,target,height,walkable,perform,status,reduced,onHurt,petState,onRoomChoice}){
+export function createPetExperience({renderer,scene,camera,pet,door,land,hits,target,height,walkable,perform,status,reduced,onHurt,petState,onRoomChoice,assetKit}){
+  const jelly=new JellyMotion();
   const walker=new GardenWalker(createNavigator(walkable)),requested=new T.Vector2(Infinity,Infinity);
   let leanX=0,leanZ=0,kickAge=1,kickStrength=0;
   let lifeContext={phase:2,bird:null,firefly:null},lifeAction='',lifeUntil=0,lifeCount=0,plannedAction='',lookTarget=null;
@@ -12,7 +14,7 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
   const canvas=renderer.domElement,parts=pet.children.filter(o=>o.userData.role);
   const soft=createSoftBody(pet),elastic=new ElasticPull(),temper=new Temper(),flight=new BallFlight();
   let currentPetState=petState||{},pendingRoomChoice=null;
-  const room=createPetRoom(()=>setMode('garden'),perform,queueRoomChoice,currentPetState);
+  const room=createPetRoom(()=>setMode('garden'),perform,queueRoomChoice,currentPetState,assetKit);
   const wardrobeWear=new T.Group();pet.add(wardrobeWear);
   const wearMaterials={scarf:new T.MeshStandardMaterial({color:'#b96f68',roughness:1}),bow:new T.MeshStandardMaterial({color:'#d6b16d',roughness:1}),cape:new T.MeshStandardMaterial({color:'#789486',roughness:1})};
   const scarf=new T.Mesh(new T.TorusGeometry(1.02,.11,10,40),wearMaterials.scarf);scarf.position.set(0,1.2,.02);scarf.rotation.x=Math.PI/2;wardrobeWear.add(scarf);
@@ -91,6 +93,7 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
   const listeners=[];
   function listen(target,type,handler,options){target.addEventListener(type,handler,options);listeners.push(()=>target.removeEventListener(type,handler,options));}
   function setMode(next){
+    jelly.reset();
     actorPrevious=null;cameraKeys.clear();
     walker.stop();requested.set(Infinity,Infinity);leanX=leanZ=0;pop.visible=false;popAge=1;activity();roomPosition.set(0,.025,.1);roomTarget.copy(roomPosition);cancel();elastic.reset();soft.reset();flight.reset();impact=impactSpeed=0;mode=next;pet.rotation.set(0,0,0);indoorYaw=0;
     if(mode==='room'){room.scene.add(pet);pet.scale.setScalar(.6);pet.position.set(0,.025,.1);}
@@ -105,7 +108,8 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
   door.userData.activate=()=>setMode('room');
   function resize(){room.resize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
   function readRay(e){const rect=canvas.getBoundingClientRect();pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);ray.setFromCamera(pointer,currentCamera());return ray;}
-  function pick(e){readRay(e);return ray.intersectObjects([...currentTargets(),...parts,...(mode==='garden'?[land]:[])],false)[0];}
+  function visible(o){for(let p=o;p;p=p.parent)if(!p.visible)return false;return true;}
+  function pick(e){readRay(e);return ray.intersectObjects([...currentTargets(),...parts,...(mode==='garden'?[land]:[])].filter(visible),false)[0];}
   function makePlane(point){currentCamera().getWorldDirection(direction);return new T.Plane().setFromNormalAndCoplanarPoint(direction,point);}
   function releaseCapture(g){if(g?.id!=null&&canvas.hasPointerCapture(g.id))canvas.releasePointerCapture(g.id);canvas.style.cursor='grab';}
   function cancel(){
@@ -121,7 +125,7 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
     if(g.kind==='stretch'){
       const peak=elastic.release();
       if(temper.release(peak,now())){const angry=temper.tugs.length>=3;status.textContent=angry?'哼！已经被弹疼三次了，小球生气地眯起了眼睛。':'哎哟！拉得有点长，松手弹疼了。';onHurt(angry);}
-      else {temper.soothe(now());perform('pet');}
+      else {temper.soothe(now());perform('pet');if(peak<.15)jelly.poke(.65);}
     } else if(g.kind==='lift'){
       const velocity=throwVelocity(g.samples,now());flight.launch(pet.position.toArray(),velocity);target.set(pet.position.x,0,pet.position.z);
       status.textContent=Math.hypot(...velocity)>1?'小球被抛了出去，落地后会弹几下。':'轻轻松手，小球落回草地。';
@@ -155,7 +159,7 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
       if(mode==='room'){soft.begin(local,hit.object.userData.role);elastic.begin();g.kind='stretch';}
       else{g.kind='lift';g.samples=[];record(g);}
       canvas.style.cursor='grabbing';
-    }else if(e.button===0&&hit?.object.userData.activate){g.kind='click';g.activate=hit.object.userData.activate;}
+    }else if(e.button===0&&hit?.object.userData.activate){g.kind='click';g.activate=()=>hit.object.userData.activate(hit);}
     else{g.kind='orbit';g.hit=hit;}
     gesture=g;canvas.setPointerCapture(e.pointerId);
   });
@@ -185,7 +189,7 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
     if(key==='escape'){e.preventDefault();cancel();return;}
     if(key==='e'){e.preventDefault();setMode(mode==='room'?'garden':'room');return;}
     if(key==='g'){e.preventDefault();if(!e.repeat)keyboardGrab();return;}
-    if(e.code==='Space'){e.preventDefault();if(gesture?.keyboard)finish();else {temper.soothe(now());perform(mode==='room'?'pet':'play');}return;}
+    if(e.code==='Space'){e.preventDefault();if(gesture?.keyboard)finish();else {temper.soothe(now());jelly.poke(.8);perform(mode==='room'?'pet':'play');}return;}
     if(e.key==='Home'){e.preventDefault();roomPosition.set(0,.025,.1);roomTarget.copy(roomPosition);cancel();elastic.reset();soft.reset();flight.reset();indoorYaw=yaw=0;zoom=1;elevation=Math.atan(.7);cameraFocus.set(0,.2,0);walker.stop([0,1]);requested.set(Infinity,Infinity);target.set(0,0,1);pet.position.set(0,mode==='room'?.025:height(0,1),mode==='room'?.1:1);return;}
     if(mode==='garden'&&['w','a','s','d'].includes(key)&&!e.ctrlKey&&!e.metaKey&&!e.altKey){e.preventDefault();cameraKeys.add(key);return;}
     const dirs={ArrowUp:[0,1],ArrowDown:[0,-1],ArrowLeft:[-1,0],ArrowRight:[1,0],w:[0,1],s:[0,-1],a:[-1,0],d:[1,0]};
@@ -234,7 +238,8 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
       // The model's sole is at local y=0, so scaling never lifts its base.
       const ease=(a,b)=>T.MathUtils.smoothstep(kickAge,a,b);
       const startle=kickAge<.055?-.055*ease(0,.055):kickAge<.16?T.MathUtils.lerp(-.055,.14,ease(.055,.16)):.14*(1-ease(.16,.56));
-      const sy=1+startle*kickStrength*(reduced.matches?.35:1)+(reduced.matches?0:Math.sin(time*2)*.003);
+      const bounce=jelly.step(dt,time,{speed:wandering?roomPosition.distanceTo(roomTarget)*.7:0,strength:assetKit.strength,reduced:reduced.matches,idle:true});
+      const sy=T.MathUtils.clamp(bounce.y+startle*kickStrength*(reduced.matches?.35:assetKit.strength),.62,1.45);
       const sx=1/Math.sqrt(sy);pet.scale.set(.6*sx,.6*sy,.6*sx);
       const surprise=Math.max(0,startle)/.14*kickStrength*(reduced.matches?.35:1);
       for(const eye of soft.eyes)eye.scale.y=T.MathUtils.lerp(eye.scale.y,1.08,surprise);
@@ -263,7 +268,8 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
       for(let i=0;i<4;i++){impactSpeed+=(-impact*110-impactSpeed*(reduced.matches?25:7))*dt/4;impact+=impactSpeed*dt/4;}
       impact=T.MathUtils.clamp(impact,-.2,.34);
       const stretch=held?.065:flight.active?T.MathUtils.clamp(Math.abs(flight.velocity[1])*.013,0,.11):0;
-      const sy=1-impact+(reduced.matches?0:stretch),sx=1/Math.sqrt(sy);
+      const bounce=jelly.step(dt,time,{speed:held||flight.active?0:walker.speed,strength:assetKit.strength,reduced:reduced.matches,idle:!held&&!flight.active});
+      const sy=T.MathUtils.clamp(bounce.y-impact*assetKit.strength+(reduced.matches?0:stretch*assetKit.strength),.58,1.45),sx=1/Math.sqrt(sy);
       pet.scale.set(.33*sx,.33*sy,.33*sx);
       if(held||flight.active||Math.abs(impact)>.001)renderer.shadowMap.needsUpdate=true;
       const forward=Number(cameraKeys.has('w'))-Number(cameraKeys.has('s')),side=Number(cameraKeys.has('d'))-Number(cameraKeys.has('a'));
@@ -317,7 +323,7 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
   const project=p=>{const v=p.clone().project(currentCamera());return {x:(v.x+1)*innerWidth/2,y:(1-v.y)*innerHeight/2};};
   function diagnostics(){
     pet.updateMatrixWorld(true);
-    return {mode,cameraControl:{yaw,elevation,focus:cameraFocus.toArray(),keys:[...cameraKeys]},lifeAction,roomLife:{rug:currentPetState.room?.rug||'peach',outfit:currentPetState.appearance?.outfit||'none',foodEffect:currentPetState.room?.foodEffect?.kind||'none',pending:pendingRoomChoice?.value||null},recoilFeedback:{age:kickAge,strength:kickStrength,scale:pet.scale.toArray()},navigation:{active:walker.active,speed:walker.speed,path:walker.path.map(p=>[...p]),target:[target.x,target.z]},lean:{x:pet.rotation.x,z:pet.rotation.z},reboundFlash:pop.visible,wandering,idleRemaining:Math.max(0,idleUntil-now()),emotion:temper.get(now()),tugs:temper.tugs.length,held:gesture?.kind||null,deformation:soft.deformation,pull:[...elastic.position],flight:{active:flight.active,velocity:[...flight.velocity]},pet:{x:pet.position.x,y:pet.position.y,z:pet.position.z},petPoints:[[0,1.3,1.3],[-1.1,1.2,1.0],[0,2.25,.65]].map(p=>project(pet.localToWorld(new T.Vector3(...p)))),targets:currentTargets().map(o=>({...project(o.getWorldPosition(new T.Vector3())),kind:o===door||room.targets.slice(0,4).includes(o)?'door':'action',action:o.userData.lifeChoice||null}))};
+    return {mode,cameraControl:{yaw,elevation,focus:cameraFocus.toArray(),keys:[...cameraKeys]},lifeAction,roomLife:{rug:currentPetState.room?.rug||'peach',outfit:currentPetState.appearance?.outfit||'none',foodEffect:currentPetState.room?.foodEffect?.kind||'none',pending:pendingRoomChoice?.value||null},recoilFeedback:{age:kickAge,strength:kickStrength,scale:pet.scale.toArray()},navigation:{active:walker.active,speed:walker.speed,path:walker.path.map(p=>[...p]),target:[target.x,target.z]},lean:{x:pet.rotation.x,z:pet.rotation.z},reboundFlash:pop.visible,wandering,idleRemaining:Math.max(0,idleUntil-now()),emotion:temper.get(now()),tugs:temper.tugs.length,held:gesture?.kind||null,deformation:soft.deformation,pull:[...elastic.position],flight:{active:flight.active,velocity:[...flight.velocity]},pet:{x:pet.position.x,y:pet.position.y,z:pet.position.z},petPoints:[[0,1.3,1.3],[-1.1,1.2,1.0],[0,2.25,.65]].map(p=>project(pet.localToWorld(new T.Vector3(...p)))),targets:currentTargets().filter(visible).map(o=>({...project(o.userData.asset?o.localToWorld(o.geometry.boundingBox.getCenter(new T.Vector3())):o.getWorldPosition(new T.Vector3())),asset:o.userData.asset||null,kind:o===door||room.targets.slice(0,4).includes(o)?'door':'action',action:o.userData.lifeChoice||null}))};
   }
   setMode('room');
   return {get held(){return gesture?.kind||null;},control(key){activity();handleKey({key,code:key,preventDefault(){}});},cameraControl(action){

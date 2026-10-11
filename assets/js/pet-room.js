@@ -1,8 +1,9 @@
 import * as T from '../vendor/three/package/build/three.module.js';
 import {painted,paintTexture,archGeometry,softShadow,batchStatic} from './pet-art.js';
 
-export function createPetRoom(onExit,onAction,onRoomChoice=()=>{},livingState={}){
+export function createPetRoom(onExit,onAction,onRoomChoice=()=>{},livingState={},assetKit){
   const scene=new T.Scene();scene.background=new T.Color('#e4dbca');
+  scene.userData.manorRoom=true;const modelTargets=[];
   const camera=new T.PerspectiveCamera(36,1,.1,40);
   const plaster=painted('#efe1c9'),sage=painted('#91a997'),timber=painted('#c4a27d','wood'),cream=painted('#fff0d4'),dark=painted('#8f6b4c','wood');
   const terracotta=painted('#c78b73'),linen=painted('#e2c4a7','fabric'),leafMat=painted('#809a6d');
@@ -95,9 +96,8 @@ export function createPetRoom(onExit,onAction,onRoomChoice=()=>{},livingState={}
   const milk=put(new T.CylinderGeometry(.13,.16,.35,20),cream,[0,1,0],[1,1,1],table);
   put(new T.TorusGeometry(.095,.025,8,16),cream,[.17,1.02,0],[1,1,1],table).rotation.y=Math.PI/2;
   milk.userData.lifeChoice='food:milk';milk.userData.activate=()=>onRoomChoice({kind:'food',value:'milk',spot:[1,.025,.5]});foodTargets.push(milk);
-  const berryCup=put(new T.CylinderGeometry(.19,.14,.14,20),terracotta,[.48,.9,0],[1,1,1],table);
-  for(let i=0;i<5;i++)put(ball,painted('#71809d'),[.48+Math.cos(i*2.4)*.1,1+Math.sin(i)*.025,Math.sin(i*2.4)*.08],[.07,.07,.07],table);
-  berryCup.userData.lifeChoice='food:berries';berryCup.userData.activate=()=>onRoomChoice({kind:'food',value:'berries',spot:[1,.025,.5]});foodTargets.push(berryCup);
+  const fruit=assetKit.place('Interior_FruitBowl_01',{parent:table,position:[.48,.795,0],scale:.52,targets:foodTargets,onActivate:()=>onRoomChoice({kind:'food',value:'berries',spot:[1,.025,.5]})});
+  fruit.visual.traverse(o=>{if(o.isMesh)o.userData.lifeChoice='food:berries';});
   const tableLabel=label('点心桌',.72,table);tableLabel.position.set(0,1.42,-.12);
 
   // Open wardrobe with three deliberately simple accessories.
@@ -127,9 +127,9 @@ export function createPetRoom(onExit,onAction,onRoomChoice=()=>{},livingState={}
     roll.userData.lifeChoice='rug:'+key;roll.userData.activate=()=>onRoomChoice({kind:'rug',value:key});rugTargets.push(roll);
   }
   const rugLabel=label('地毯',.5,wardrobe);rugLabel.position.set(0,.86,.5);
-  const cushion=put(ball,painted('#9bada1','fabric'),[-3.03,.21,.8],[.79,.23,.61]);cushion.userData.activate=()=>onAction('sleep');
-  const piping=put(new T.TorusGeometry(1,.016,6,64),cream,[-3.03,.23,.8],[.76,.58,.8]);piping.rotation.x=-Math.PI/2;
-  put(ball,linen,[-3.03,.41,.8],[.055,.025,.055]);
+  assetKit.place('Interior_BeanbagChair_01',{parent:scene,position:[-3.03,0,.8],scale:1.4,yaw:.25,targets:modelTargets,onActivate:()=>onAction('sleep')});
+  assetKit.place('Interior_RoundSofa_01',{parent:scene,position:[-1.15,0,-1.65],scale:1.8,yaw:.12,targets:modelTargets,onActivate:()=>onAction('sleep')});
+  assetKit.place('Interior_YarnBasket_01',{parent:scene,position:[-2.13,0,1.5],scale:.65,yaw:.4,targets:modelTargets,onActivate:()=>onAction('play')});
   const bowl=put(new T.TorusGeometry(.27,.05,10,32),cream,[2.24,.105,1]);bowl.rotation.x=-Math.PI/2;bowl.userData.activate=()=>onAction('feed');
   put(new T.CylinderGeometry(.27,.2,.1,24),terracotta,[2.24,.05,1]);
   const berries=new T.InstancedMesh(ball,painted('#bb7e56'),7);
@@ -138,7 +138,7 @@ export function createPetRoom(onExit,onAction,onRoomChoice=()=>{},livingState={}
   const shade=painted('#f3d9a6','fabric');shade.emissive.set('#efb666');shade.emissiveIntensity=.16;
   put(new T.CylinderGeometry(.24,.38,.46,32),shade,[-3.95,1.87,-1.1]);put(new T.CylinderGeometry(.025,.025,.62,12),dark,[-3.95,1.44,-1.1]);put(ball,dark,[-3.95,1.14,-1.1],[.19,.045,.19]);
   const lamp=new T.PointLight('#ffd394',2.5,4,2);lamp.position.set(-3.95,1.7,-.85);scene.add(lamp);
-  const targets=[door,panel,knob,exitLabel,cushion,bowl,...foodTargets,...outfitTargets,...rugTargets];
+  const targets=[door,panel,knob,exitLabel,bowl,...modelTargets,...foodTargets,...outfitTargets,...rugTargets];
   batchStatic(scene,targets);
   const spots={dine:new T.Vector3(1,.025,.5),rug:new T.Vector3(0,.025,.45),cushion:new T.Vector3(-2.05,.025,.72),window:new T.Vector3(-1.35,.025,-.12)};
   function setLivingState(state={}){
