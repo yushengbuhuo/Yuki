@@ -5,8 +5,8 @@ import {softShadow} from './pet-art.js';
 // Shared by the hero, roaming residents, visiting bird and individual sheep.
 export function createCarrySystem({scene,height,walkable,volumes,renderer}){
   const actors=[];
-  function register({root,label,radius=.4,bodyHeight=.8,flight=new BallFlight(),hero=false,onBegin=()=>{},onLand=()=>{},poke=()=>{}}){
-    const actor={root,label,radius,bodyHeight,flight,hero,held:false,onBegin,onLand,poke,impact:0};
+  function register({root,label,radius=.4,bodyHeight=.8,flight=new BallFlight(),hero=false,onBegin=()=>{},onLand=()=>{},poke=()=>{},sync=()=>{}}){
+    const actor={root,label,radius,bodyHeight,flight,hero,held:false,onBegin,onLand,poke,sync,impact:0};
     Object.defineProperty(actor,'busy',{get:()=>actor.held||flight.active});
     actor.space={
       clear(p){
@@ -39,7 +39,7 @@ export function createCarrySystem({scene,height,walkable,volumes,renderer}){
       }
     };
     actor.begin=()=>{flight.reset();actor.held=true;onBegin();};
-    actor.release=velocity=>{actor.held=false;flight.launch(root.position.toArray(),velocity);};
+    actor.release=velocity=>{actor.held=false;actor.releasedVelocity=[...velocity];flight.launch(root.position.toArray(),velocity);};
     actors.push(actor);return actor;
   }
   function visible(root){for(let p=root;p;p=p.parent)if(!p.visible)return false;return true;}
@@ -58,12 +58,45 @@ export function createCarrySystem({scene,height,walkable,volumes,renderer}){
       a.impact=a.flight.step(dt,height,walkable,a.space);a.root.position.fromArray(a.flight.position);
       if(a.impact>.4)a.poke();
       if(!a.flight.active){a.root.rotation.z=0;a.onLand();}
+      a.sync();
       renderer.shadowMap.needsUpdate=true;
     }
   }
   return {register,update,feedback,
-    // Fixed vertical plane: raising the pointer cannot change ground depth.
-    plane(camera,point){const n=camera.getWorldDirection(new T.Vector3());n.y=0;n.normalize();return new T.Plane().setFromNormalAndCoplanarPoint(n,point);},
+    grip(actor,hit,camera){
+      actor.root.updateWorldMatrix(true,true);
+      const mesh=hit.instanceId===undefined?hit.object:null;
+      const normal=camera.getWorldDirection(new T.Vector3());normal.y=0;normal.normalize();
+      return {mesh,local:mesh?mesh.worldToLocal(hit.point.clone()):actor.root.worldToLocal(hit.point.clone()),
+        plane:new T.Plane().setFromNormalAndCoplanarPoint(normal,hit.point),
+        ceiling:hit.point.y+T.MathUtils.clamp(actor.bodyHeight*1.3,.85,1.35),
+        phase:'raise',point:hit.point.clone()};
+    },
+    gripPoint(actor,grip){const object=grip.mesh||actor.root;object.updateWorldMatrix(true,false);return object.localToWorld(grip.local.clone());},
+    follow(actor,grip,ray){
+      let point=ray.intersectPlane(grip.plane,new T.Vector3());if(!point)return false;
+      if(grip.phase==='raise'&&point.y>=grip.ceiling){
+        grip.phase='carry';grip.plane.setFromNormalAndCoplanarPoint(new T.Vector3(0,1,0),new T.Vector3(0,grip.ceiling,0));
+        point=ray.intersectPlane(grip.plane,new T.Vector3());if(!point)return false;
+      }
+      grip.point.copy(point);return true;
+    },
+    placeGrip(actor,grip){
+      const object=grip.mesh||actor.root;object.updateWorldMatrix(true,false);
+      const offset=object.localToWorld(grip.local.clone()).sub(actor.root.position);
+      const desired=grip.point.clone().sub(offset);
+      if(desired.y<height(desired.x,desired.z)-.01||desired.y>7)return false;
+      const start=actor.root.position.clone(),steps=Math.max(1,Math.ceil(start.distanceTo(desired)/.1));
+      // A tightly packed flock may already overlap our conservative body bounds.
+      // Permit an upward escape from that overlap, then enforce clear space.
+      let escaping=!actor.space.clear(start.toArray());
+      for(let i=1;i<=steps;i++){
+        const p=start.clone().lerp(desired,i/steps),clear=actor.space.clear(p.toArray());
+        if(clear){escaping=false;continue;}
+        if(!escaping||p.y<start.y-.001||Math.hypot(p.x-start.x,p.z-start.z)>Math.max(0,p.y-start.y)*.5+.003)return false;
+      }
+      actor.root.position.copy(desired);actor.sync();renderer.shadowMap.needsUpdate=true;return true;
+    },
     move(actor,desired){
       desired.x=T.MathUtils.clamp(desired.x,-10,10);desired.z=T.MathUtils.clamp(desired.z,-7,7);desired.y=T.MathUtils.clamp(desired.y,height(desired.x,desired.z)+.02,7);
       const start=actor.root.position.clone(),steps=Math.max(1,Math.ceil(start.distanceTo(desired)/.1));
@@ -74,16 +107,14 @@ export function createCarrySystem({scene,height,walkable,volumes,renderer}){
       }
       renderer.shadowMap.needsUpdate=true;
     },
-    velocity(g,time,camera){
+    velocity(g,time){
       const v=throwVelocity(g.samples,time);if(Math.hypot(...v)<.8)return [0,0,0];
-      // The held body stays at one depth; the final upward flick throws away
-      // from the viewer, with enough vertical speed for a soft arc.
-      const forward=camera.getWorldDirection(new T.Vector3());forward.y=0;forward.normalize();
-      const depth=T.MathUtils.clamp(v[1]*.65,-5,5);
-      const result=[v[0]+forward.x*depth,Math.max(.3,v[1]*.55),v[2]+forward.z*depth];
+      // Horizontal hand motion is already world-space motion after height lock.
+      // Add a small upward arc without inventing a second depth direction.
+      const result=[v[0],g.grip?.phase==='carry'?Math.min(2,Math.hypot(v[0],v[2])*.2):Math.max(.3,v[1]*.55),v[2]];
       const speed=Math.hypot(...result);return result.map(n=>n*Math.min(1,9/(speed||1)));
     },
-    diagnostics:()=>actors.filter(a=>visible(a.root)).map(a=>({name:a.label,kind:a.root.name,hero:a.hero,position:a.root.position.toArray(),held:a.held,flying:a.flight.active,velocity:[...a.flight.velocity],valid:a.space.landing(a.root.position.toArray())})),
+    diagnostics:()=>actors.filter(a=>visible(a.root)).map(a=>({name:a.label,kind:a.root.name,hero:a.hero,position:a.root.position.toArray(),held:a.held,flying:a.flight.active,velocity:[...a.flight.velocity],releasedVelocity:a.releasedVelocity||[0,0,0],valid:a.space.landing(a.root.position.toArray())})),
     dispose(){for(const m of [shadow,ring]){scene.remove(m);m.geometry.dispose();m.material.map?.dispose();m.material.dispose();}}
   };
 }

@@ -15,14 +15,15 @@ export function createWildlife({scene,height,walkable,mobile,renderer,assetKit,h
  // Raycasting must not keep a stale sphere computed at their first position.
  bodies.boundingSphere=new T.Sphere(new T.Vector3(),70);
  bodies.userData.activate=hit=>{if(hit.instanceId!==undefined){jellies[hit.instanceId].poke();status.textContent='小羊抖了抖软软的身体。';}};hits.push(bodies);
- const dummy=new T.Object3D(),matrix=new T.Matrix4(),root=new T.Object3D();
+ const dummy=new T.Object3D(),instanceMatrix=new T.Matrix4();
  const renderPos=flock.sheep.map(s=>new T.Vector3(s.x,0,s.z)),renderYaw=new Float32Array(count),renderSpeed=new Float32Array(count);
  const sheepRoots=flock.sheep.map((s,i)=>{const o=new T.Object3D();o.name=`flock-sheep-${i}`;herd.add(o);o.position.copy(renderPos[i]);return o;});
+ const sheepPose=flock.sheep.map(()=>new T.Matrix4());
  const sheepCarry=sheepRoots.map((o,i)=>carry.register({root:o,label:'小羊',radius:.43,bodyHeight:1,
    onBegin(){flock.sheep[i].carried=true;renderSpeed[i]=0;},
-   onLand(){const s=flock.sheep[i];s.carried=false;s.x=o.position.x;s.z=o.position.z;s.vx=s.vz=0;s.cooldown=3;renderPos[i].copy(o.position);},poke(){jellies[i].poke();}}));
+   onLand(){const s=flock.sheep[i];s.carried=false;s.x=o.position.x;s.z=o.position.z;s.vx=s.vz=0;s.cooldown=3;renderPos[i].copy(o.position);},poke(){jellies[i].poke();},
+   sync(){o.updateWorldMatrix(true,false);bodies.setMatrixAt(i,instanceMatrix.multiplyMatrices(o.matrix,sheepPose[i]));bodies.instanceMatrix.needsUpdate=true;}}));
  bodies.userData.carryActor=hit=>sheepCarry[hit.instanceId];
- function at(mesh,index,x,y,z,sx,sy,sz,rx=0){dummy.position.set(x,y,z);dummy.scale.set(sx,sy,sz);dummy.rotation.set(rx,0,0);dummy.updateMatrix();matrix.multiplyMatrices(root.matrix,dummy.matrix);mesh.setMatrixAt(index,matrix);}
  const shadows=[];for(let i=0;i<count;i++){const s=softShadow(1.2,.23);herd.add(s);shadows.push(s);}
  // A cloaked shepherd with a broad hat and crook, deliberately simple at this distance.
  const shepherd=new T.Group();herd.add(shepherd);const coat=new T.MeshLambertMaterial({color:'#899488'}),hatMat=new T.MeshLambertMaterial({color:'#715843'}),face=new T.MeshLambertMaterial({color:'#d3b18c'});
@@ -53,9 +54,12 @@ export function createWildlife({scene,height,walkable,mobile,renderer,assetKit,h
     if(sheepCarry[i].busy)pos.copy(sheepRoots[i].position);
     else{if(Math.abs(pos.x-s.x)>15)pos.set(s.x,height(s.x,s.z),s.z);else pos.lerp(new T.Vector3(s.x,height(s.x,s.z),s.z),1-Math.exp(-dt*14));sheepRoots[i].position.copy(pos);}
     renderYaw[i]+=Math.atan2(Math.sin(s.yaw-renderYaw[i]),Math.cos(s.yaw-renderYaw[i]))*(1-Math.exp(-dt*9));renderSpeed[i]+=(speed-renderSpeed[i])*(1-Math.exp(-dt*8));
-    root.position.copy(pos);root.rotation.set(0,renderYaw[i],sheepCarry[i].busy?sheepRoots[i].rotation.z:0);root.scale.setScalar(.83+(i%3)*.055);root.updateMatrix();
-    const squash=jellies[i].step(dt,time,{speed:renderSpeed[i],strength:assetKit.strength,reduced,idle:true});
-    at(bodies,i,0,squash.hop,0,squash.radial,squash.y,squash.radial,graze&&!reduced?Math.sin(time*2+s.seed)*.035:0);
+    if(!sheepCarry[i].held){
+      sheepRoots[i].rotation.y=renderYaw[i];sheepRoots[i].scale.setScalar(.83+(i%3)*.055);
+      const squash=jellies[i].step(dt,time,{speed:renderSpeed[i],strength:assetKit.strength,reduced,idle:true});
+      dummy.position.set(0,squash.hop,0);dummy.scale.set(squash.radial,squash.y,squash.radial);dummy.rotation.set(graze&&!reduced?Math.sin(time*2+s.seed)*.035:0,0,0);dummy.updateMatrix();sheepPose[i].copy(dummy.matrix);
+    }
+    sheepCarry[i].sync();
     shadows[i].visible=!sheepCarry[i].busy;shadows[i].position.set(pos.x,height(pos.x,pos.z)+.015,pos.z);
    }
    for(const m of parts)m.instanceMatrix.needsUpdate=true;

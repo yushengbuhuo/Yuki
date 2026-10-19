@@ -167,7 +167,7 @@ flockBellAge+=dt;if(flockBell)flockBell.rotation.z=reduced.matches?0:Math.sin(fl
 const phase=daynight.diagnostics().phase;wildlife.update(dt,time,phase,pet,experience.mode,reduced.matches);
 if(assetKit.update(dt,time,experience.mode,reduced.matches))renderer.shadowMap.needsUpdate=true;
 experience.setLifeContext({phase,bird:wildlife.bird,firefly:garden.lights[4].position});
-experience.update(dt,ms/1000);experience.resolveActors(wildlife.colliders());soundscape.update(dt,time,experience.mode,phase,pet,experience.moving);soundscape.pull(experience.pullSound);
+experience.update(dt,ms/1000);experience.syncGrip();experience.resolveActors(wildlife.colliders());soundscape.update(dt,time,experience.mode,phase,pet,experience.moving);soundscape.pull(experience.pullSound);
 for(const event of wildlife.audioEvents())soundscape.emit(event.kind,event.position);
 if(experience.mode==="garden")vegetation.update(camera,scene.fog);
 const active=ms/1000-actionTime<1.2;

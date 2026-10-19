@@ -134,12 +134,18 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
       if(g.airborne)g.actor.release([0,0,0]);else g.actor.onLand();
       if(g.actor===heroCarry){temper.soothe(now());jelly.poke(.65);perform('pet');}else g.activate?.();
     } else if(g.kind==='lift'){
-      const velocity=carry.velocity(g,now(),camera);g.actor.release(velocity);
+      const velocity=carry.velocity(g,now());g.actor.release(velocity);
       status.textContent=Math.hypot(...velocity)>1?`${g.actor.label}被轻轻抛了出去，落地后弹了弹。`:`轻轻松手，${g.actor.label}落回草地。`;
     }
     carry.feedback(null);
   }
   function record(g){const time=now();g.samples.push({time,position:(g.actor?.root||pet).position.toArray()});g.samples=g.samples.filter(s=>time-s.time<=.16);}
+  function syncGrip(){
+    const g=gesture;if(g?.kind!=='lift'||!g.grip)return;
+    if(!carry.placeGrip(g.actor,g.grip)){
+      const label=g.actor.label;cancel();status.textContent=`这里有障碍或到了庭院边缘，轻轻放下${label}。`;
+    }
+  }
   function dragTo(e){
     const g=gesture;if(!g||g.id!==e.pointerId)return;
     if(g.kind==='pending-lift'){
@@ -147,16 +153,15 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
       g.kind='lift';g.samples=[];record(g);canvas.style.cursor='grabbing';
       status.textContent=`提起${g.actor.label}啦，轻轻拖动，松手放下，也可以甩一甩。`;
     }
-    if(g.kind==='stretch'||g.kind==='lift'){
+    if(g.kind==='lift'){
+      readRay(e);
+      if(!carry.follow(g.actor,g.grip,ray.ray)){cancel();return;}
+      if(!reduced.matches)g.actor.root.rotation.z=T.MathUtils.clamp(-(g.actor.root.position.x-g.origin.x)*.045,-.12,.12);
+      syncGrip();if(gesture!==g)return;
+      record(g);carry.feedback(g.actor);
+    }else if(g.kind==='stretch'){
       readRay(e);if(!ray.ray.intersectPlane(g.plane,planePoint))return;
-      if(g.kind==='stretch'){
-        const local=pet.worldToLocal(planePoint.clone());elastic.move(local.sub(g.anchor).toArray());
-      } else {
-        const desired=g.origin.clone().add(planePoint.clone().sub(g.start));
-        if(!g.lifted){const amount=T.MathUtils.clamp((desired.y-g.origin.y)/.28,0,1);desired.x=g.origin.x+(desired.x-g.origin.x)*amount;desired.z=g.origin.z+(desired.z-g.origin.z)*amount;if(amount===1)g.lifted=true;}
-        carry.move(g.actor,desired);record(g);carry.feedback(g.actor);
-        if(!reduced.matches)g.actor.root.rotation.z=T.MathUtils.clamp(-(g.actor.root.position.x-g.origin.x)*.045,-.12,.12);
-      }
+      const local=pet.worldToLocal(planePoint.clone());elastic.move(local.sub(g.anchor).toArray());
     } else if(g.kind==='orbit'&&Math.hypot(e.clientX-g.x,e.clientY-g.y)>7){
       if(mode==='room')indoorYaw=g.yaw+(e.clientX-g.x)*.008;else {yaw=g.yaw+(e.clientX-g.x)*.004;if(g.button===1)elevation=T.MathUtils.clamp(g.elevation+(e.clientY-g.y)*.004,Math.PI/9,Math.PI*7/18);}
     }
@@ -168,7 +173,7 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
     const carryActor=mode==='garden'?(hit?.object.userData.role?heroCarry:hit?.object.userData.carryActor?.(hit)):null;
     if(e.button===0&&carryActor){
       g.actor=carryActor;g.airborne=carryActor.flight.active;carryActor.begin();
-      g.start=hit.point.clone();g.plane=carry.plane(camera,hit.point);g.origin=carryActor.root.position.clone();g.kind='pending-lift';g.activate=()=>hit.object.userData.activate?.(hit);
+      cameraKeys.clear();g.grip=carry.grip(carryActor,hit,camera);g.origin=carryActor.root.position.clone();g.kind='pending-lift';g.activate=()=>hit.object.userData.activate?.(hit);
     }else if(e.button===0&&hit?.object.userData.role){
       kickAge=1;flight.reset();target.set(pet.position.x,0,pet.position.z);
       const local=pet.worldToLocal(hit.point.clone());g.anchor=local;g.start=hit.point.clone();g.plane=makePlane(hit.point);g.origin=pet.position.clone();
@@ -207,7 +212,7 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
     if(key==='g'){e.preventDefault();if(!e.repeat)keyboardGrab();return;}
     if(e.code==='Space'){e.preventDefault();if(gesture?.keyboard)finish();else {temper.soothe(now());jelly.poke(.8);perform(mode==='room'?'pet':'play');}return;}
     if(e.key==='Home'){e.preventDefault();roomPosition.set(0,.025,.1);roomTarget.copy(roomPosition);cancel();elastic.reset();soft.reset();flight.reset();indoorYaw=yaw=0;zoom=1;elevation=Math.atan(.7);cameraFocus.set(0,.2,0);walker.stop([0,1]);requested.set(Infinity,Infinity);target.set(0,0,1);pet.position.set(0,mode==='room'?.025:height(0,1),mode==='room'?.1:1);return;}
-    if(mode==='garden'&&['w','a','s','d'].includes(key)&&!e.ctrlKey&&!e.metaKey&&!e.altKey){e.preventDefault();cameraKeys.add(key);return;}
+    if(mode==='garden'&&['w','a','s','d'].includes(key)&&!e.ctrlKey&&!e.metaKey&&!e.altKey){e.preventDefault();if(!gesture?.actor)cameraKeys.add(key);return;}
     const dirs={ArrowUp:[0,1],ArrowDown:[0,-1],ArrowLeft:[-1,0],ArrowRight:[1,0],w:[0,1],s:[0,-1],a:[-1,0],d:[1,0]};
     const dir=dirs[e.key]||dirs[key];
     if(gesture?.keyboard){
@@ -342,11 +347,12 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
   const project=p=>{const v=p.clone().project(currentCamera());return {x:(v.x+1)*innerWidth/2,y:(1-v.y)*innerHeight/2};};
   function diagnostics(){
     pet.updateMatrixWorld(true);
-    return {mode,carry:carry.diagnostics().map(a=>({...a,screen:project(new T.Vector3(a.position[0],a.position[1]+(a.hero?.42:.35),a.position[2]))})),cameraControl:{yaw,elevation,focus:cameraFocus.toArray(),keys:[...cameraKeys]},lifeAction,roomLife:{rug:currentPetState.room?.rug||'peach',outfit:currentPetState.appearance?.outfit||'none',foodEffect:currentPetState.room?.foodEffect?.kind||'none',pending:pendingRoomChoice?.value||null},recoilFeedback:{age:kickAge,strength:kickStrength,scale:pet.scale.toArray()},navigation:{active:walker.active,speed:walker.speed,path:walker.path.map(p=>[...p]),target:[target.x,target.z]},lean:{x:pet.rotation.x,z:pet.rotation.z},reboundFlash:pop.visible,wandering,idleRemaining:Math.max(0,idleUntil-now()),emotion:temper.get(now()),tugs:temper.tugs.length,held:gesture?.kind||null,deformation:soft.deformation,pull:[...elastic.position],flight:{active:flight.active,velocity:[...flight.velocity]},pet:{x:pet.position.x,y:pet.position.y,z:pet.position.z},petPoints:[[0,1.3,1.3],[-1.1,1.2,1.0],[0,2.25,.65]].map(p=>project(pet.localToWorld(new T.Vector3(...p)))),targets:currentTargets().filter(visible).map(o=>({...project(o.userData.asset?o.localToWorld(o.geometry.boundingBox.getCenter(new T.Vector3())):o.getWorldPosition(new T.Vector3())),asset:o.userData.asset||null,kind:o===door||room.targets.slice(0,4).includes(o)?'door':'action',action:o.userData.lifeChoice||null}))};
+    return {mode,grip:gesture?.grip?{phase:gesture.grip.phase,ceiling:gesture.grip.ceiling,liftScreen:project(new T.Vector3(gesture.grip.point.x,gesture.grip.ceiling,gesture.grip.point.z)),point:carry.gripPoint(gesture.actor,gesture.grip).toArray(),screen:project(carry.gripPoint(gesture.actor,gesture.grip)),target:gesture.grip.point.toArray()}:null,carry:carry.diagnostics().map(a=>({...a,screen:project(new T.Vector3(a.position[0],a.position[1]+(a.hero?.42:.35),a.position[2]))})),cameraControl:{yaw,elevation,focus:cameraFocus.toArray(),keys:[...cameraKeys]},lifeAction,roomLife:{rug:currentPetState.room?.rug||'peach',outfit:currentPetState.appearance?.outfit||'none',foodEffect:currentPetState.room?.foodEffect?.kind||'none',pending:pendingRoomChoice?.value||null},recoilFeedback:{age:kickAge,strength:kickStrength,scale:pet.scale.toArray()},navigation:{active:walker.active,speed:walker.speed,path:walker.path.map(p=>[...p]),target:[target.x,target.z]},lean:{x:pet.rotation.x,z:pet.rotation.z},reboundFlash:pop.visible,wandering,idleRemaining:Math.max(0,idleUntil-now()),emotion:temper.get(now()),tugs:temper.tugs.length,held:gesture?.kind||null,deformation:soft.deformation,pull:[...elastic.position],flight:{active:flight.active,velocity:[...flight.velocity]},pet:{x:pet.position.x,y:pet.position.y,z:pet.position.z},petPoints:[[0,1.3,1.3],[-1.1,1.2,1.0],[0,2.25,.65]].map(p=>project(pet.localToWorld(new T.Vector3(...p)))),targets:currentTargets().filter(visible).map(o=>({...project(o.userData.asset?o.localToWorld(o.geometry.boundingBox.getCenter(new T.Vector3())):o.getWorldPosition(new T.Vector3())),asset:o.userData.asset||null,kind:o===door||room.targets.slice(0,4).includes(o)?'door':'action',action:o.userData.lifeChoice||null}))};
   }
   setMode('room');
   return {get held(){return gesture?.kind||null;},control(key){activity();handleKey({key,code:key,preventDefault(){}});},cameraControl(action){
     activity();
+    if(gesture?.grip)return;
     if(action==='reset'){indoorYaw=yaw=0;zoom=1;elevation=Math.atan(.7);cameraFocus.set(0,.2,0);return;}
     if(action==='left'||action==='right'){const delta=action==='left'?-.2:.2;if(mode==='room')indoorYaw+=delta;else yaw+=delta;return;}
     if(mode!=='garden'){status.textContent='推门去庄园后，可以俯仰、平移和缩放镜头。';return;}
@@ -354,5 +360,5 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
     if(action==='near'||action==='far')zoom=T.MathUtils.clamp(zoom+(action==='near'?-.08:.08),.8,1.35);
     if(action==='pan-left'||action==='pan-right')cameraFocus.x=T.MathUtils.clamp(cameraFocus.x+(action==='pan-left'?-.5:.5),-8,8);
     if(action==='forward'||action==='back')cameraFocus.z=T.MathUtils.clamp(cameraFocus.z+(action==='forward'?-.5:.5),-6,6);
-  },update,diagnostics,resize,cancel,room,resolveActors,setRoomState,setLifeContext(value){lifeContext=value;},get pullSound(){return {held:mode==='room'&&elastic.held,strength:Math.min(1,Math.hypot(...elastic.position)/1.3),impact:mode==='room'&&elastic.impact,impactStrength:kickStrength};},get idle(){return !gesture&&!flight.active&&!elastic.active;},get moving(){return mode==='garden'?walker.speed>.08:wandering;},get scene(){return mode==='room'?room.scene:scene;},get camera(){return currentCamera();},get mode(){return mode;},dispose(){disposed=true;cancel();listeners.forEach(fn=>fn());carry.dispose();const gs=new Set(),ms=new Set();room.scene.traverse(o=>{if(o.geometry)gs.add(o.geometry);if(o.material)ms.add(o.material);});gs.forEach(g=>g.dispose());ms.forEach(m=>{m.map?.dispose();m.dispose();});}};
+  },update,syncGrip,diagnostics,resize,cancel,room,resolveActors,setRoomState,setLifeContext(value){lifeContext=value;},get pullSound(){return {held:mode==='room'&&elastic.held,strength:Math.min(1,Math.hypot(...elastic.position)/1.3),impact:mode==='room'&&elastic.impact,impactStrength:kickStrength};},get idle(){return !gesture&&!flight.active&&!elastic.active;},get moving(){return mode==='garden'?walker.speed>.08:wandering;},get scene(){return mode==='room'?room.scene:scene;},get camera(){return currentCamera();},get mode(){return mode;},dispose(){disposed=true;cancel();listeners.forEach(fn=>fn());carry.dispose();const gs=new Set(),ms=new Set();room.scene.traverse(o=>{if(o.geometry)gs.add(o.geometry);if(o.material)ms.add(o.material);});gs.forEach(g=>g.dispose());ms.forEach(m=>{m.map?.dispose();m.dispose();});}};
 }
