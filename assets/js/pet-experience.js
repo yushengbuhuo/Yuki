@@ -96,6 +96,7 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
   const listeners=[];
   function listen(target,type,handler,options){target.addEventListener(type,handler,options);listeners.push(()=>target.removeEventListener(type,handler,options));}
   function setMode(next){
+    if(gesture?.grip)return;
     jelly.reset();
     actorPrevious=null;cameraKeys.clear();
     walker.stop();requested.set(Infinity,Infinity);leanX=leanZ=0;pop.visible=false;popAge=1;activity();roomPosition.set(0,.025,.1);roomTarget.copy(roomPosition);cancel();elastic.reset();soft.reset();flight.reset();impact=impactSpeed=0;mode=next;pet.rotation.set(0,0,0);indoorYaw=0;
@@ -117,6 +118,7 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
   function releaseCapture(g){if(g?.id!=null&&canvas.hasPointerCapture(g.id))canvas.releasePointerCapture(g.id);canvas.style.cursor='grab';}
   function cancel(){
     cameraKeys.clear();
+    if(gesture?.grip)return;
     kickAge=1;
     const g=gesture;gesture=null;releaseCapture(g);
     if(g?.kind==='stretch'){elastic.reset();soft.reset();}
@@ -142,12 +144,15 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
   function record(g){const time=now();g.samples.push({time,position:(g.actor?.root||pet).position.toArray()});g.samples=g.samples.filter(s=>time-s.time<=.16);}
   function syncGrip(){
     const g=gesture;if(g?.kind!=='lift'||!g.grip)return;
-    if(!carry.placeGrip(g.actor,g.grip)){
-      const label=g.actor.label;cancel();status.textContent=`这里有障碍或到了庭院边缘，轻轻放下${label}。`;
-    }
+    if(g.lastPointer){readRay(g.lastPointer);carry.follow(g.actor,g.grip,ray.ray);}
+    carry.placeGrip(g.actor,g.grip);
   }
   function dragTo(e){
     const g=gesture;if(!g||g.id!==e.pointerId)return;
+    if(g.grip){
+      if(!(e.buttons&1)){finish();return;}
+      g.lastPointer={pointerId:e.pointerId,clientX:e.clientX,clientY:e.clientY,buttons:e.buttons};
+    }
     if(g.kind==='pending-lift'){
       if(Math.hypot(e.clientX-g.x,e.clientY-g.y)<=6)return;
       g.kind='lift';g.samples=[];record(g);canvas.style.cursor='grabbing';
@@ -155,7 +160,7 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
     }
     if(g.kind==='lift'){
       readRay(e);
-      if(!carry.follow(g.actor,g.grip,ray.ray)){cancel();return;}
+      if(!carry.follow(g.actor,g.grip,ray.ray))return;
       if(!reduced.matches)g.actor.root.rotation.z=T.MathUtils.clamp(-(g.actor.root.position.x-g.origin.x)*.045,-.12,.12);
       syncGrip();if(gesture!==g)return;
       record(g);carry.feedback(g.actor);
@@ -167,6 +172,9 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
     }
   }
   listen(canvas,'pointerdown',e=>{
+    if(gesture?.grip&&e.button===0&&e.isPrimary!==false){
+      gesture.id=e.pointerId;canvas.setPointerCapture(e.pointerId);dragTo(e);return;
+    }
     if(gesture||e.isPrimary===false||![0,1,2].includes(e.button))return;
     e.preventDefault();canvas.focus({preventScroll:true});
     const hit=pick(e);const g={id:e.pointerId,x:e.clientX,y:e.clientY,button:e.button,elevation,yaw:mode==='room'?indoorYaw:yaw};
@@ -184,9 +192,13 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
     else{g.kind='orbit';g.hit=hit;}
     gesture=g;canvas.setPointerCapture(e.pointerId);
   });
-  listen(canvas,'pointermove',e=>{if(gesture)dragTo(e);});
-  listen(canvas,'pointerup',e=>{
+  listen(window,'pointermove',e=>{if(gesture)dragTo(e);});
+  listen(window,'pointerup',e=>{
     const g=gesture;if(!g||g.id!==e.pointerId)return;
+    if(g.grip&&(e.buttons&1))return;
+    // pointerup itself is the release; use the last held pointer state to
+    // sample its final position before finish() computes the throw velocity.
+    if(g.grip){dragTo({...g.lastPointer,pointerId:e.pointerId,clientX:e.clientX,clientY:e.clientY,buttons:1});finish();return;}
     if(g.kind==='stretch'||g.kind==='lift'||g.kind==='pending-lift'){dragTo(e);finish();return;}
     gesture=null;releaseCapture(g);
     if(Math.hypot(e.clientX-g.x,e.clientY-g.y)>7)return;
@@ -200,6 +212,7 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
   listen(canvas,'contextmenu',e=>e.preventDefault());
   listen(canvas,'wheel',e=>{e.preventDefault();if(mode==='garden'&&!gesture?.actor)zoom=T.MathUtils.clamp(zoom+e.deltaY*.0005,.8,1.35);},{passive:false});
   function keyboardGrab(){
+    if(gesture?.grip)return;
     if(gesture){finish();return;}kickAge=1;flight.reset();
     if(mode==='room'){const point=new T.Vector3(0,1.35,1.3);soft.begin(point,'body');elastic.begin();gesture={kind:'stretch',keyboard:true};}
     else{heroCarry.begin();carry.move(heroCarry,pet.position.clone().setY(Math.max(pet.position.y,height(pet.position.x,pet.position.z)+1.2)));gesture={kind:'lift',actor:heroCarry,keyboard:true,samples:[]};record(gesture);}
@@ -207,6 +220,7 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
   function handleKey(e){
     if(e.ctrlKey||e.metaKey||e.altKey)return;
     const key=e.key.toLowerCase();
+    if(gesture?.grip&&['escape','e','g','home'].includes(key)){e.preventDefault();return;}
     if(key==='escape'){e.preventDefault();cancel();return;}
     if(key==='e'){e.preventDefault();setMode(mode==='room'?'garden':'room');return;}
     if(key==='g'){e.preventDefault();if(!e.repeat)keyboardGrab();return;}
@@ -226,7 +240,7 @@ export function createPetExperience({renderer,scene,camera,pet,door,land,hits,ta
   listen(canvas,'keydown',handleKey);
   listen(canvas,'keyup',e=>cameraKeys.delete(e.key.toLowerCase()));listen(canvas,'blur',()=>cameraKeys.clear());
   listen(window,'blur',cancel);listen(document,'visibilitychange',()=>{if(document.hidden)cancel();});
-  listen(window,'resize',()=>{cancel();resize();});
+  listen(window,'resize',()=>{cancel();resize();if(gesture?.lastPointer)dragTo(gesture.lastPointer);});
   const toggle=document.querySelector('[data-world-toggle]');if(toggle)listen(toggle,'click',()=>setMode(mode==='room'?'garden':'room'));
   const grabButton=document.querySelector('[data-grab]');if(grabButton)listen(grabButton,'click',()=>{canvas.focus();keyboardGrab();});
   function update(dt,time){

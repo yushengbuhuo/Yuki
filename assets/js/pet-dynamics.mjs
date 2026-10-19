@@ -38,12 +38,26 @@ export function throwVelocity(samples,now){
   return v.map(n=>n*Math.min(1,11/(speed||1)));
 }
 export class BallFlight {
-  constructor(){this.position=[0,0,0];this.velocity=[0,0,0];this.active=false;}
-  launch(position,velocity){this.position=[...position];const speed=Math.hypot(...velocity);this.velocity=velocity.map(v=>v*Math.min(1,11/(speed||1)));this.active=true;}
-  reset(){this.active=false;this.velocity.fill(0);}
+  constructor(){this.position=[0,0,0];this.velocity=[0,0,0];this.active=false;this.recovery=null;}
+  launch(position,velocity){this.recovery=null;this.position=[...position];const speed=Math.hypot(...velocity);this.velocity=velocity.map(v=>v*Math.min(1,11/(speed||1)));this.active=true;}
+  reset(){this.recovery=null;this.active=false;this.velocity.fill(0);}
   step(dt,ground,walkable,space){
     let impact=0;const steps=Math.max(1,Math.ceil(Math.min(dt,.06)*120)),h=Math.min(dt,.06)/steps;
     for(let i=0;i<steps&&this.active;i++){
+      // A hand may release a body inside scenery or outside the walking area.
+      // Guide it out continuously before applying normal collision response.
+      if(space&&!space.clear(this.position)){
+        const safe=this.recovery||(this.recovery=space.safe(this.position)),dx=safe[0]-this.position[0],dz=safe[2]-this.position[2],d=Math.hypot(dx,dz);
+        if(d>.01){
+          const travel=Math.min(d,Math.max(2.4,Math.min(8,d*3))*h);
+          this.position[0]+=dx/d*travel;this.position[2]+=dz/d*travel;
+          this.velocity[0]=dx/d*travel/h;this.velocity[2]=dz/d*travel/h;
+          this.velocity[1]-=9.8*h;const floor=ground(this.position[0],this.position[2]);this.position[1]+=this.velocity[1]*h;
+          if(this.position[1]<=floor){this.position[1]=floor;this.velocity[1]=0;}
+          continue;
+        }
+      }
+      this.recovery=null;
       this.velocity[1]-=9.8*h;
       for(const axis of [0,2]){
         const p=[...this.position];p[axis]+=this.velocity[axis]*h;

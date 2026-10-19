@@ -31,8 +31,9 @@ export function createCarrySystem({scene,height,walkable,volumes,renderer}){
       },
       landing(p){return walkable(p[0],p[2])&&actor.space.clear([p[0],height(p[0],p[2])+.02,p[2]]);},
       safe(p){
+        const ox=T.MathUtils.clamp(p[0],-9.8,9.8),oz=T.MathUtils.clamp(p[2],-6.8,6.8);
         for(let r=0;r<=25;r+=.2)for(let n=0;n<(r?40:1);n++){
-          const a=n/40*Math.PI*2,x=p[0]+Math.cos(a)*r,z=p[2]+Math.sin(a)*r,q=[x,height(x,z),z];
+          const a=n/40*Math.PI*2,x=ox+Math.cos(a)*r,z=oz+Math.sin(a)*r,q=[x,height(x,z),z];
           if(actor.space.landing(q))return q;
         }
         return [0,height(0,1),1];
@@ -85,16 +86,9 @@ export function createCarrySystem({scene,height,walkable,volumes,renderer}){
       const object=grip.mesh||actor.root;object.updateWorldMatrix(true,false);
       const offset=object.localToWorld(grip.local.clone()).sub(actor.root.position);
       const desired=grip.point.clone().sub(offset);
-      if(desired.y<height(desired.x,desired.z)-.01||desired.y>7)return false;
-      const start=actor.root.position.clone(),steps=Math.max(1,Math.ceil(start.distanceTo(desired)/.1));
-      // A tightly packed flock may already overlap our conservative body bounds.
-      // Permit an upward escape from that overlap, then enforce clear space.
-      let escaping=!actor.space.clear(start.toArray());
-      for(let i=1;i<=steps;i++){
-        const p=start.clone().lerp(desired,i/steps),clear=actor.space.clear(p.toArray());
-        if(clear){escaping=false;continue;}
-        if(!escaping||p.y<start.y-.001||Math.hypot(p.x-start.x,p.z-start.z)>Math.max(0,p.y-start.y)*.5+.003)return false;
-      }
+      if(!desired.toArray().every(Number.isFinite))return false;
+      // While held, the grip follows the hand even over invalid landing spots.
+      // Scenery and estate bounds become physical constraints only on release.
       actor.root.position.copy(desired);actor.sync();renderer.shadowMap.needsUpdate=true;return true;
     },
     move(actor,desired){
