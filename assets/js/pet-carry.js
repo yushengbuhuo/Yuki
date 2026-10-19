@@ -76,6 +76,9 @@ export function createCarrySystem({scene,height,walkable,volumes,renderer}){
     gripPoint(actor,grip){const object=grip.mesh||actor.root;object.updateWorldMatrix(true,false);return object.localToWorld(grip.local.clone());},
     follow(actor,grip,ray){
       let point=ray.intersectPlane(grip.plane,new T.Vector3());if(!point)return false;
+      // During pickup the hand can only raise the grip. Downward pointer
+      // movement waits at the highest reached position until the hand rises.
+      if(grip.phase==='raise')point.y=Math.max(grip.point.y,point.y);
       if(grip.phase==='raise'&&point.y>=grip.ceiling){
         grip.phase='carry';grip.plane.setFromNormalAndCoplanarPoint(new T.Vector3(0,1,0),new T.Vector3(0,grip.ceiling,0));
         point=ray.intersectPlane(grip.plane,new T.Vector3());if(!point)return false;
@@ -87,6 +90,10 @@ export function createCarrySystem({scene,height,walkable,volumes,renderer}){
       const offset=object.localToWorld(grip.local.clone()).sub(actor.root.position);
       const desired=grip.point.clone().sub(offset);
       if(!desired.toArray().every(Number.isFinite))return false;
+      if(grip.phase==='raise'){
+        const floor=height(desired.x,desired.z);
+        if(desired.y<floor){grip.point.y+=floor-desired.y;desired.y=floor;}
+      }
       // While held, the grip follows the hand even over invalid landing spots.
       // Scenery and estate bounds become physical constraints only on release.
       actor.root.position.copy(desired);actor.sync();renderer.shadowMap.needsUpdate=true;return true;
