@@ -3,8 +3,8 @@ import {createFlock} from './pet-flock.mjs';
 import {softShadow} from './pet-art.js';
 import {JellyMotion} from './pet-jelly.mjs';
 import {createResidents} from './pet-residents.js';
-export function createWildlife({scene,height,walkable,mobile,renderer,assetKit,hits,status}){
- const residents=createResidents({scene,height,walkable,assetKit,hits,status});
+export function createWildlife({scene,height,walkable,mobile,renderer,assetKit,hits,status,carry}){
+ const residents=createResidents({scene,height,walkable,assetKit,hits,status,carry});
  const flock=createFlock({count:mobile?7:10,walkable}),count=flock.sheep.length;
  const herd=new T.Group();herd.name='visiting-flock';scene.add(herd);
  const dark=new T.MeshLambertMaterial({color:'#776957'});
@@ -17,6 +17,11 @@ export function createWildlife({scene,height,walkable,mobile,renderer,assetKit,h
  bodies.userData.activate=hit=>{if(hit.instanceId!==undefined){jellies[hit.instanceId].poke();status.textContent='小羊抖了抖软软的身体。';}};hits.push(bodies);
  const dummy=new T.Object3D(),matrix=new T.Matrix4(),root=new T.Object3D();
  const renderPos=flock.sheep.map(s=>new T.Vector3(s.x,0,s.z)),renderYaw=new Float32Array(count),renderSpeed=new Float32Array(count);
+ const sheepRoots=flock.sheep.map((s,i)=>{const o=new T.Object3D();o.name=`flock-sheep-${i}`;herd.add(o);o.position.copy(renderPos[i]);return o;});
+ const sheepCarry=sheepRoots.map((o,i)=>carry.register({root:o,label:'小羊',radius:.43,bodyHeight:1,
+   onBegin(){flock.sheep[i].carried=true;renderSpeed[i]=0;},
+   onLand(){const s=flock.sheep[i];s.carried=false;s.x=o.position.x;s.z=o.position.z;s.vx=s.vz=0;s.cooldown=3;renderPos[i].copy(o.position);},poke(){jellies[i].poke();}}));
+ bodies.userData.carryActor=hit=>sheepCarry[hit.instanceId];
  function at(mesh,index,x,y,z,sx,sy,sz,rx=0){dummy.position.set(x,y,z);dummy.scale.set(sx,sy,sz);dummy.rotation.set(rx,0,0);dummy.updateMatrix();matrix.multiplyMatrices(root.matrix,dummy.matrix);mesh.setMatrixAt(index,matrix);}
  const shadows=[];for(let i=0;i<count;i++){const s=softShadow(1.2,.23);herd.add(s);shadows.push(s);}
  // A cloaked shepherd with a broad hat and crook, deliberately simple at this distance.
@@ -29,8 +34,11 @@ export function createWildlife({scene,height,walkable,mobile,renderer,assetKit,h
  mesh(new T.TorusGeometry(.13,.023,6,16,Math.PI),hatMat,[.27,1.5,0]);
  let birdHops=0;const hopFrom=new T.Vector3(),hopTo=new T.Vector3();
  let birdState='away',birdAge=0,birdWait=9,birdStart=new T.Vector3(-17,6,4),birdEnd=new T.Vector3(-2,.2,1),lastPhase=2,night=0;
- const bird=new T.Group();scene.add(bird);
+ const bird=new T.Group();bird.name='visiting-bird';scene.add(bird);
  const visitor=assetKit.place('Animal_Bird_02',{parent:bird,scale:.48,idle:true,targets:hits,onActivate:()=>{status.textContent='小鸟轻轻弹了一下。';}}),wings=[];
+ const birdCarry=carry.register({root:bird,label:'小鸟',radius:.2,bodyHeight:.5,
+   onBegin(){visitor.speed=0;},onLand(){birdState='peck';birdAge=0;bird.rotation.z=0;},poke(){visitor.motion.poke();}});
+ visitor.visual.traverse(o=>{if(o.isMesh)o.userData.carryActor=()=>birdCarry;});
  const butterfly=new T.Group();scene.add(butterfly);const wingMat=new T.MeshLambertMaterial({color:'#eadbb9',side:T.DoubleSide});
  const butterflyWings=[mesh(new T.CircleGeometry(.1,8),wingMat,[-.08,0,0],[1,1.4,1],butterfly),mesh(new T.CircleGeometry(.1,8),wingMat,[.08,0,0],[1,1.4,1],butterfly)];
  const birdPosition=new T.Vector3();let bell=0,bleat=0,shadowClock=0;
@@ -42,19 +50,21 @@ export function createWildlife({scene,height,walkable,mobile,renderer,assetKit,h
   if(herd.visible){
    for(let i=0;i<count;i++){const s=flock.sheep[i],speed=Math.hypot(s.vx,s.vz),graze=s.state==='graze',pos=renderPos[i];
     // Reset only while far outside the estate, never teleport a visible sheep.
-    if(Math.abs(pos.x-s.x)>15)pos.set(s.x,height(s.x,s.z),s.z);else pos.lerp(new T.Vector3(s.x,height(s.x,s.z),s.z),1-Math.exp(-dt*14));
+    if(sheepCarry[i].busy)pos.copy(sheepRoots[i].position);
+    else{if(Math.abs(pos.x-s.x)>15)pos.set(s.x,height(s.x,s.z),s.z);else pos.lerp(new T.Vector3(s.x,height(s.x,s.z),s.z),1-Math.exp(-dt*14));sheepRoots[i].position.copy(pos);}
     renderYaw[i]+=Math.atan2(Math.sin(s.yaw-renderYaw[i]),Math.cos(s.yaw-renderYaw[i]))*(1-Math.exp(-dt*9));renderSpeed[i]+=(speed-renderSpeed[i])*(1-Math.exp(-dt*8));
-    root.position.copy(pos);root.rotation.set(0,renderYaw[i],0);root.scale.setScalar(.83+(i%3)*.055);root.updateMatrix();
+    root.position.copy(pos);root.rotation.set(0,renderYaw[i],sheepCarry[i].busy?sheepRoots[i].rotation.z:0);root.scale.setScalar(.83+(i%3)*.055);root.updateMatrix();
     const squash=jellies[i].step(dt,time,{speed:renderSpeed[i],strength:assetKit.strength,reduced,idle:true});
     at(bodies,i,0,squash.hop,0,squash.radial,squash.y,squash.radial,graze&&!reduced?Math.sin(time*2+s.seed)*.035:0);
-    shadows[i].position.set(pos.x,pos.y+.015,pos.z);
+    shadows[i].visible=!sheepCarry[i].busy;shadows[i].position.set(pos.x,height(pos.x,pos.z)+.015,pos.z);
    }
    for(const m of parts)m.instanceMatrix.needsUpdate=true;
    const l=flock.leader;shepherd.position.lerp(new T.Vector3(l.x,height(l.x,l.z),l.z),1-Math.exp(-dt*12));if(Math.abs(shepherd.position.x-l.x)>15)shepherd.position.set(l.x,height(l.x,l.z),l.z);shepherd.rotation.y+=Math.atan2(Math.sin(l.yaw-shepherd.rotation.y),Math.cos(l.yaw-shepherd.rotation.y))*(1-Math.exp(-dt*8));
    boots.forEach((b,i)=>b.rotation.x=reduced?0:Math.sin(l.travel*10+i*Math.PI)*Math.min(.35,l.speed*.5));
   }
   birdAge+=dt;birdWait-=dt;
-  if(birdState==='away'){bird.visible=false;if(phase<2.8&&birdWait<=0){birdState='arrive';birdHops=0;birdAge=0;birdStart.set(-17,6,4);birdEnd.set(-1.7,height(-1.7,1)+.03,1);bird.visible=true;}}
+  if(birdCarry.busy){birdAge=0;}
+  else if(birdState==='away'){bird.visible=false;if(phase<2.8&&birdWait<=0){birdState='arrive';birdHops=0;birdAge=0;birdStart.set(-17,6,4);birdEnd.set(-1.7,height(-1.7,1)+.03,1);bird.visible=true;}}
   else if(birdState==='arrive'||birdState==='depart'){
    const t=Math.min(1,birdAge/4),s=t*t*(3-2*t);bird.position.lerpVectors(birdStart,birdEnd,s);bird.position.y+=Math.sin(t*Math.PI)*1.2;
    bird.rotation.y=Math.atan2(birdEnd.x-birdStart.x,birdEnd.z-birdStart.z);wings.forEach((w,i)=>w.rotation.z=reduced?0:Math.sin(time*22)*(i?1:-1)*.9);

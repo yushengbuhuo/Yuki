@@ -26,7 +26,7 @@ export function mountWorldControls(experience){
   // Reflect pointer, keyboard and button actions alike without moving focus.
   const sync=setInterval(()=>{
     const held=experience.held;
-    grab.textContent=held?'释放小球（G）':'抓取小球（G）';grab.setAttribute('aria-pressed',String(!!held));
+    grab.textContent=held?'松手（G）':'抓取小球（G）';grab.setAttribute('aria-pressed',String(!!held));
   },250);
   canvas.setAttribute('aria-describedby','scene-help');
   const help=document.createElement('p');help.id='scene-help';help.className='accessible';help.textContent='H 摇铃唤羊，M 环境声，T 切换时刻，P 暂停昼夜，E 出入，G 抓取，方向键调整，空格释放，Escape 取消。玩法提示与随手操作提供全部按钮。';document.querySelector('#world').append(help);

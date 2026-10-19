@@ -21,7 +21,7 @@ export function createFlock({count=10,walkable=()=>true}={}){
     if(moving){
       const dx=goal[0]-leader.x,dz=goal[1]-leader.z,d=length(dx,dz);
       // A shepherd waits for stragglers rather than abandoning the flock.
-      const lag=Math.max(...sheep.map(s=>length(s.x-leader.x,s.z-leader.z)));
+      const lag=Math.max(0,...sheep.filter(s=>!s.carried).map(s=>length(s.x-leader.x,s.z-leader.z)));
       leader.speed=lag>5?.18:.85;
       if(d<.2){
         if(stage==='arriving'){if(waypoint<route.length-1)waypoint++;else{stage='grazing';leader.speed=0;for(const s of sheep){s.state='wander';goalFor(s);}}}
@@ -30,9 +30,9 @@ export function createFlock({count=10,walkable=()=>true}={}){
         if(!pet||length(nx-pet.x,nz-pet.z)>1.2){leader.x=nx;leader.z=nz;}else leader.speed=0;leader.travel+=travel;leader.yaw+=angle(leader.yaw,Math.atan2(dx,dz))*Math.min(1,dt*4);}
     }else leader.speed=0;
     // Snapshot reactions: panic spreads locally, never cascades across an entire frame.
-    const neighbors=sheep.map(s=>({x:s.x,z:s.z,fear:s.fear}));
+    const neighbors=sheep.map(s=>({x:s.x,z:s.z,fear:s.carried?0:s.fear}));
     for(let i=0;i<count;i++){
-      const s=sheep[i];s.cooldown=Math.max(0,s.cooldown-dt);s.timer=Math.max(0,s.timer-dt);s.fear=Math.max(0,s.fear-dt*.35);
+      const s=sheep[i];if(s.carried)continue;s.cooldown=Math.max(0,s.cooldown-dt);s.timer=Math.max(0,s.timer-dt);s.fear=Math.max(0,s.fear-dt*.35);
       const dx=pet? s.x-pet.x:100,dz=pet?s.z-pet.z:100,d=length(dx,dz);
       const alarm=neighbors.some((n,j)=>j!==i&&n.fear>.75&&length(n.x-s.x,n.z-s.z)<1.1);
       if(d<1.0+s.shy*.65&&s.cooldown===0&&s.state!=='flee'&&s.state!=='watch'){
@@ -55,7 +55,7 @@ export function createFlock({count=10,walkable=()=>true}={}){
       let sx=0,sz=0,ax=0,az=0,n=0;
       if(pet&&d<1.65&&d>.001){sx+=dx/d*(1.65-d)*3;sz+=dz/d*(1.65-d)*3;}
       const lx=s.x-leader.x,lz=s.z-leader.z,ld=length(lx,lz);if(ld<.9&&ld>.001){sx+=lx/ld*(.9-ld)*3;sz+=lz/ld*(.9-ld)*3;}
-      for(let j=0;j<count;j++){if(i===j)continue;const other=sheep[j],ox=s.x-other.x,oz=s.z-other.z,dist=length(ox,oz);
+      for(let j=0;j<count;j++){if(i===j||sheep[j].carried)continue;const other=sheep[j],ox=s.x-other.x,oz=s.z-other.z,dist=length(ox,oz);
         if(dist<.95&&dist>.001){sx+=ox/dist*(.95-dist)*2.5;sz+=oz/dist*(.95-dist)*2.5;}
         if(dist<2.2){ax+=other.vx;az+=other.vz;n++;}
       }

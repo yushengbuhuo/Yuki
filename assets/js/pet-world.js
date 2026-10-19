@@ -10,6 +10,7 @@ import {createWildlife} from './pet-wildlife.js';
 import {createSoundscape} from './pet-soundscape.js';
 import {createStyleSystem} from './pet-style.js';
 import {createDebugPanel} from './pet-debug.js';
+import {createCarrySystem} from './pet-carry.js';
 let experience,daynight,wildlife,soundscape,artStyles,debugPanel,flockBell,flockBellAge=10;
 
 const host=document.querySelector('#world'),status=document.querySelector('#status');
@@ -123,6 +124,9 @@ const ball=mesh(sphere,mat('#d8a077'),1,.3,4.6,.27);ball.userData.activate=()=>p
 door.userData.activate=()=>perform('sleep');hits.push(door);
 
 const propObstacles=[...garden.obstacles];
+const carryVolumes=[...vegetation.carryVolumes];
+function solidBounds(object){const b=new T.Box3().setFromObject(object);carryVolumes.push({minX:b.min.x,maxX:b.max.x,minZ:b.min.z,maxZ:b.max.z,bottom:b.min.y,top:b.max.y});}
+for(const p of garden.obstacles)carryVolumes.push({minX:p.x-.24,maxX:p.x+.24,minZ:p.z-.24,maxZ:p.z+.24,bottom:height(p.x,p.z),top:height(p.x,p.z)+1.1});
 for(const [name,x,z,scale,yaw,radius] of [
  ['Manor_HandWaterPump_01',-.05,-2.6,1.15,-.35,.38],
  ['Manor_HayBale_01',-6.5,4.65,1.2,.2,.65],
@@ -133,6 +137,7 @@ for(const [name,x,z,scale,yaw,radius] of [
  ['Manor_WoodenSignpost_01',1.3,-3,1.35,-.2,.32]
 ]){
  const a=assetKit.place(name,{parent:scene,position:[x,height(x,z),z],scale,yaw,targets:hits,onActivate:()=>{status.textContent=name.includes('Pump')?'压一压水泵，清凉的水声在花园里响起。':'轻轻碰一碰，庄园里的小物件晃了晃。';if(name.includes('Pump'))perform('clean');}});
+ solidBounds(a.root);
  propObstacles.push({x,z,r:radius});
 }
 hits.push(...garden.targets);
@@ -149,6 +154,10 @@ cottagePart(sphere,windowMaterial,-.5,.91,.65,.16,.18,.04);
 cottagePart(box,stone,0,.035,.94,1.05,.07,.56);
 
 function walkable(x,z){return Math.hypot((x-5.3)/3.9,(z-1.5)/2.9)>1&&Math.hypot((x+3.7)/2.5,(z+3.6)/2)>1&&!(Math.abs(x-1.1)<1.15&&Math.abs(z+5.4)<1)&&trees.every(([tx,tz])=>Math.hypot(x-tx,z-tz)>.8)&&propObstacles.every(p=>Math.hypot(x-p.x,z-p.z)>p.r);}
+carryVolumes.push({minX:-5.65,maxX:-1.75,minZ:-5.35,maxZ:-2.05,bottom:0,top:3.65});
+solidBounds(desktopCottage);
+for(const [x,z,s] of trees)carryVolumes.push({minX:x-.24*s,maxX:x+.24*s,minZ:z-.24*s,maxZ:z+.24*s,bottom:height(x,z),top:height(x,z)+3.7*s});
+const carry=createCarrySystem({scene,height,walkable,volumes:carryVolumes,renderer});
 function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();experience?.resize();}addEventListener('resize',resize);resize();
 let frame=0,last=0,time=0,slow=0,frames=0,total=0,renderedFrames=0;const offset=new T.Vector3();
 function tick(ms){frame=requestAnimationFrame(tick);if(ms-last<1000/(mobile?30:60)-1)return;const debugStart=debugPanel.beginFrame();const elapsed=(ms-last)/1000,dt=Math.min(elapsed,.05);last=ms;time+=dt;wind.value=reduced.matches?0:time;waterMat.uniforms.time.value=reduced.matches?0:time;
@@ -185,12 +194,12 @@ if(objects.length<2)continue;const positions=[],normals=[],uvs=[];
 for(const o of objects){o.updateMatrix();const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();g.applyMatrix4(o.matrix);positions.push(...g.attributes.position.array);normals.push(...g.attributes.normal.array);if(g.attributes.uv)uvs.push(...g.attributes.uv.array);else for(let i=0;i<g.attributes.position.count;i++)uvs.push(0,0);g.dispose();scene.remove(o);}
 const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setAttribute('normal',new T.Float32BufferAttribute(normals,3));g.setAttribute('uv',new T.Float32BufferAttribute(uvs,2));g.computeBoundingSphere();const o=mesh(g,objects[0].material,0,0,0);o.castShadow=objects[0].castShadow;
 }
-experience=createPetExperience({renderer,scene,camera,pet,door,land,hits,target,height,walkable,perform,status,reduced,assetKit,petState:state,onRoomChoice:roomChoice,onHurt(angry){
+experience=createPetExperience({renderer,scene,camera,pet,door,land,hits,target,height,walkable,perform,status,reduced,assetKit,carry,petState:state,onRoomChoice:roomChoice,onHurt(angry){
 state={...state,mood:Math.max(0,state.mood-(angry?8:4)),totalInteractions:state.totalInteractions+1};
 if(!window.PetStorage.save(state))status.textContent+=' 本次进度未能保存。';
 }});
 daynight=createDayNight({scene,sun,ambient,room:experience.room,vegetation,water:waterMat,clouds:cloudMat,garden,windowMaterial,renderer,hits,status,reduced});
-wildlife=createWildlife({scene,height,walkable,mobile,renderer,assetKit,hits,status});
+wildlife=createWildlife({scene,height,walkable,mobile,renderer,assetKit,hits,status,carry});
 soundscape=createSoundscape({canvas,scene,room:experience.room,hits,status});
 function summonFlock(){const result=wildlife.flock.invite();flockBellAge=0;soundscape.emit('bell',{x:-5.7,z:5.5});status.textContent=result==='arriving'?'牧羊人和羊群已经在路上，稍等一会儿。':result==='grazing'?'羊群已经在草地上吃草啦。':result==='leaving'?'牧羊人正带羊群前往另一侧，等它们走远后再邀请吧。':'铃声传向远方，牧羊人会带着羊群沿小路走来。';}
 const summonBrass=mat('#c9aa69');flockBell=mesh(new T.CylinderGeometry(.11,.23,.34,20),summonBrass,-5.7,1.52,5.5);flockBell.userData.activate=summonFlock;hits.push(flockBell);

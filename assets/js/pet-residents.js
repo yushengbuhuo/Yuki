@@ -1,6 +1,6 @@
 import {createNavigator,GardenWalker} from './pet-navigation.mjs';
 
-export function createResidents({scene,height,walkable,assetKit,hits,status}){
+export function createResidents({scene,height,walkable,assetKit,hits,status,carry}){
   const navigation=createNavigator(walkable,{clearance:.28}),definitions=[
     ['Animal_Cat_01',-1.25,3.7,.76,.55,'小花猫'],
     ['Animal_Cat_02',6.7,-4.1,.74,.48,'另一只小花猫'],
@@ -14,12 +14,17 @@ export function createResidents({scene,height,walkable,assetKit,hits,status}){
   const animals=definitions.map(([name,x,z,size,pace,label],i)=>{
     const a=assetKit.place(name,{parent:scene,position:[x,height(x,z),z],scale:size,yaw:i*.7,idle:true,targets:hits,onActivate:()=>{status.textContent=label+'开心地晃了晃。';a.wait=2.5;a.walker.stop([a.root.position.x,a.root.position.z]);}});
     a.home=[x,z];a.walker=new GardenWalker(navigation);a.walker.stop([x,z]);a.pace=pace;a.wait=1+i*.65;a.hop=name.includes('Rabbit')||name.includes('Bird');a.radius=size*.34;a.seed=571+i*777;
+    a.carry=carry.register({root:a.root,label,radius:a.radius,bodyHeight:size,
+      onBegin(){a.walker.stop([a.root.position.x,a.root.position.z]);a.speed=0;},
+      onLand(){a.root.rotation.z=0;a.home=[a.root.position.x,a.root.position.z];a.walker.stop(a.home);a.wait=3;},poke(){a.motion.poke();}});
+    a.visual.traverse(o=>{if(o.isMesh)o.userData.carryActor=()=>a.carry;});
     return a;
   });
   function random(a){a.seed=(a.seed*1664525+1013904223)>>>0;return a.seed/4294967296;}
   function update(dt,mode,reduced){
     if(mode!=='garden')return;
     for(const a of animals){
+      if(a.carry.busy){a.speed=0;continue;}
       if(reduced){a.speed=0;continue;}
       a.wait-=dt;
       if(!a.walker.active&&a.wait<=0){

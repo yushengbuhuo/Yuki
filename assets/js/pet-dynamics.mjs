@@ -41,17 +41,29 @@ export class BallFlight {
   constructor(){this.position=[0,0,0];this.velocity=[0,0,0];this.active=false;}
   launch(position,velocity){this.position=[...position];const speed=Math.hypot(...velocity);this.velocity=velocity.map(v=>v*Math.min(1,11/(speed||1)));this.active=true;}
   reset(){this.active=false;this.velocity.fill(0);}
-  step(dt,ground,walkable){
+  step(dt,ground,walkable,space){
     let impact=0;const steps=Math.max(1,Math.ceil(Math.min(dt,.06)*120)),h=Math.min(dt,.06)/steps;
     for(let i=0;i<steps&&this.active;i++){
       this.velocity[1]-=9.8*h;
       for(const axis of [0,2]){
         const p=[...this.position];p[axis]+=this.velocity[axis]*h;
-        if(Math.abs(p[0])>10||p[2]<-7||p[2]>7||!walkable(p[0],p[2]))this.velocity[axis]*=-.42;
+        if(Math.abs(p[0])>10||p[2]<-7||p[2]>7||(space?!space.clear(p):!walkable(p[0],p[2])))this.velocity[axis]*=-.42;
         else this.position[axis]=p[axis];
       }
-      this.position[1]+=this.velocity[1]*h;const floor=ground(this.position[0],this.position[2]);
+      const next=[...this.position];next[1]+=this.velocity[1]*h;
+      if(space&&!space.clear(next)){
+        this.velocity[1]=Math.abs(this.velocity[1])*.3;
+        const safe=space.safe(this.position);const dx=safe[0]-this.position[0],dz=safe[2]-this.position[2],d=Math.hypot(dx,dz)||1;
+        this.velocity[0]=dx/d*2;this.velocity[2]=dz/d*2;
+      }else this.position[1]=next[1];
+      const floor=ground(this.position[0],this.position[2]);
       if(this.position[1]<=floor){this.position[1]=floor;impact=Math.max(impact,-this.velocity[1]);this.velocity[1]=Math.max(0,-this.velocity[1]*.38);this.velocity[0]*=.78;this.velocity[2]*=.78;
+        // Water and blocked landing spots gently bounce toward nearby clear ground.
+        // Do not teleport a released animal or leave it stranded in the pond.
+        if(space&&!space.landing(this.position)){
+          const safe=space.safe(this.position),dx=safe[0]-this.position[0],dz=safe[2]-this.position[2],d=Math.hypot(dx,dz)||1;
+          this.velocity=[dx/d*2.4,Math.max(1.8,this.velocity[1]),dz/d*2.4];continue;
+        }
         if(this.velocity[1]<.4&&Math.hypot(this.velocity[0],this.velocity[2])<.3)this.reset();}
     }
     return impact;

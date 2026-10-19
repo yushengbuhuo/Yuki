@@ -233,6 +233,7 @@ export function createVegetation({scene,wind,height,trees,mobile,sun,ambient,loc
         if(canopy.mesh.visible)activeLeaves+=canopy.mesh.count;
       }
     },
+    carryVolumes:shadowLobes.map(({center,radius})=>({center,rx:radius*.92,ry:radius*.78,rz:radius*.92,bottom:center.y-radius*.78,top:center.y+radius*.78})),
     reduce(){level=Math.max(.65,level-.15);},
     diagnostics:()=>({trees:trees.length,grassSectors:chunks.length,grassTotal:grassCount,grassActive:activeGrass,grassBudget:Math.floor((mobile?6500:11500)*level),leafBatches:canopies.length,leavesActive:activeLeaves,shadowVolumes:shadowLobes.length,grassReceivesShadow:grassMat.uniforms.shadowReady.value===1,shadowMapSize:sun.shadow.mapSize.x,shadowTaps:mobile?1:4,quality:level}),
     dispose(){group.removeFromParent();new Set(resources).forEach(r=>r.dispose());grassAtlas.dispose();leafAtlas.dispose();bark.dispose();}
